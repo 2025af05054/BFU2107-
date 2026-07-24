@@ -1,0 +1,16 @@
+project_id = "fbgioxhbuullokzmqwqn"
+
+[functions.products]
+verify_jwt = false
+
+[functions.suppliers]
+verify_jwt = true
+
+[functions.rfq]
+verify_jwt = true
+
+[functions.notifications]
+verify_jwt = true
+
+[functions.sourcing-assistant]
+verify_jwt = false
