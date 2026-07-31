@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const GEMINI_MODEL = "gemini-2.0-flash";
+const GEMINI_MODEL = "gemma-4-26b-a4b-it";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 const SYSTEM_PROMPT = `You are an expert industrial sourcing assistant. Your job is to convert a user's sourcing request (free text + attachments) into a set of structured candidate products ready for RFQ form integration.
@@ -58,7 +58,8 @@ Output JSON schema:
 
 function extractGeminiText(data: any): string | undefined {
   return data?.candidates?.[0]?.content?.parts
-    ?.map((p: any) => p.text || "")
+    ?.filter((p: any) => !p.thought)
+    .map((p: any) => p.text || "")
     .join("")
     .trim();
 }
