@@ -5,6 +5,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const GEMINI_MODEL = "gemini-2.0-flash";
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+
 const SYSTEM_PROMPT = `You are an expert industrial sourcing assistant. Your job is to convert a user's sourcing request (free text + attachments) into a set of structured candidate products ready for RFQ form integration.
 
 CRITICAL REQUIREMENTS FOR PRODUCT CANDIDATES:
@@ -53,6 +56,48 @@ Output JSON schema:
   "overall_confidence": number
 }`;
 
+function extractGeminiText(data: any): string | undefined {
+  return data?.candidates?.[0]?.content?.parts
+    ?.map((p: any) => p.text || "")
+    .join("")
+    .trim();
+}
+
+async function callGemini(apiKey: string, parts: any[], systemInstruction?: string) {
+  const body: any = {
+    contents: [{ role: "user", parts }],
+  };
+  if (systemInstruction) {
+    body.system_instruction = { parts: [{ text: systemInstruction }] };
+  }
+
+  return fetch(`${GEMINI_URL}?key=${apiKey}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+function geminiErrorResponse(status: number, errorText: string) {
+  console.error("Gemini API error:", status, errorText);
+  if (status === 429) {
+    return new Response(
+      JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
+      { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+  if (status === 403 || status === 401) {
+    return new Response(
+      JSON.stringify({ error: "Gemini API key is invalid or unauthorized." }),
+      { status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+  return new Response(
+    JSON.stringify({ error: "Gemini API error: " + errorText }),
+    { status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -61,17 +106,17 @@ serve(async (req) => {
   try {
     const { mode, description, quantity, priority, currency, fileUrls, fileNames, refine, queryId, answers } = await req.json();
     console.log('Sourcing assistant called with:', { mode, hasDescription: !!description, fileCount: fileUrls?.length || 0, refine });
-    
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+
+    if (!GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured");
     }
 
     // Handle document extraction mode
     if (mode === 'extract') {
       console.log('Document extraction mode activated');
-      
+
       if (!fileUrls || fileUrls.length === 0) {
         return new Response(
           JSON.stringify({ error: 'No files provided for extraction' }),
@@ -103,65 +148,34 @@ Format your response as JSON:
 }`;
 
       const parts: any[] = [{ text: extractionPrompt }];
-      
-      // Add image URLs to the request
+
       for (const url of fileUrls) {
         const fileName = fileNames?.[fileUrls.indexOf(url)] || '';
         const fileExt = fileName.split('.').pop()?.toLowerCase();
-        
-        // Only add images directly; for PDFs, we note them in text
+
         if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExt || '')) {
+          const imgResponse = await fetch(url);
+          const arrayBuffer = await imgResponse.arrayBuffer();
           parts.push({
-            inline_data: {
-              mime_type: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
-              data: await fetch(url).then(r => r.arrayBuffer()).then(b => btoa(String.fromCharCode(...new Uint8Array(b))))
-            }
+            inlineData: {
+              mimeType: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
+              data: btoa(String.fromCharCode(...new Uint8Array(arrayBuffer))),
+            },
           });
         } else if (fileExt === 'pdf') {
           parts.push({ text: `PDF document attached: ${fileName} (URL: ${url})` });
         }
       }
 
-      const extractResponse = await fetch(
-        "https://ai.gateway.lovable.dev/v1/chat/completions",
-        {
-          method: "POST",
-          headers: { 
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${LOVABLE_API_KEY}`
-          },
-          body: JSON.stringify({
-            model: "google/gemini-3-flash-preview",
-            messages: [
-              { role: "user", content: parts.map(p => p.text || "[image]").join("\n") }
-            ],
-          }),
-        }
-      );
+      const extractResponse = await callGemini(GEMINI_API_KEY, parts);
 
       if (!extractResponse.ok) {
         const errorText = await extractResponse.text();
-        console.error("AI Gateway error during extraction:", extractResponse.status, errorText);
-        if (extractResponse.status === 429) {
-          return new Response(
-            JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
-            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-        if (extractResponse.status === 402) {
-          return new Response(
-            JSON.stringify({ error: "Payment required. Please add funds to your Lovable workspace." }),
-            { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-        return new Response(
-          JSON.stringify({ error: "Failed to extract from documents: " + errorText }),
-          { status: extractResponse.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return geminiErrorResponse(extractResponse.status, errorText);
       }
 
       const extractData = await extractResponse.json();
-      const extractContent = extractData.choices?.[0]?.message?.content;
+      const extractContent = extractGeminiText(extractData);
 
       if (!extractContent) {
         console.error("No content in extraction response:", JSON.stringify(extractData));
@@ -175,7 +189,6 @@ Format your response as JSON:
         parsedExtraction = JSON.parse(jsonStr);
       } catch (parseError) {
         console.error("Failed to parse extraction response:", extractContent);
-        // Fallback: use the raw content as the description
         parsedExtraction = {
           bulleted_specs: [],
           comprehensive_paragraph: extractContent
@@ -194,9 +207,8 @@ Format your response as JSON:
     // Original analysis mode
     let userPrompt = "";
     const parts: any[] = [];
-    
+
     if (refine && queryId && answers) {
-      // Refinement flow
       userPrompt = `Previous analysis ID: ${queryId}
 
 User has provided answers to clarifying questions:
@@ -205,11 +217,8 @@ ${Object.entries(answers).map(([key, value]) => `${key}: ${value}`).join('\n')}
 Please refine the previous analysis with these new details. Update price and lead time estimates based on the additional information. Indicate which fields changed and why.`;
       parts.push({ text: userPrompt });
     } else {
-      // Initial analysis - handle both description and/or files
       if (fileUrls && fileUrls.length > 0) {
-        // Documents are uploaded
         if (description && description.trim()) {
-          // Both description and documents provided
           userPrompt = `IMPORTANT: You are analyzing a sourcing request that includes both a written description and technical document(s). The attached documents (technical drawings, datasheets, specifications) should be treated as the PRIMARY source of truth. If there are any contradictions between the written description and the documents, prioritize the specifications found in the documents.
 
 User's written description:
@@ -219,22 +228,20 @@ Documents attached (see images/files below).
 
 Task: Synthesize the information from both sources to create the most accurate cost estimate. Extract all technical specifications from the documents and combine them with any additional context from the written description. Provide realistic estimates for the Indian market.`;
         } else {
-          // Only documents, no description
           userPrompt = `You are analyzing technical document(s) for a sourcing request. Extract all key technical specifications from the provided documents and use them to generate a comprehensive cost estimate.
 
 Documents attached (see images/files below).
 
 Task: Extract specifications and provide realistic estimates for the Indian market based solely on the document content.`;
         }
-        
+
         parts.push({ text: userPrompt });
 
-        // Add files to the request
         for (const url of fileUrls) {
           const fileName = fileNames?.[fileUrls.indexOf(url)] || '';
           const fileExt = fileName.split('.').pop()?.toLowerCase();
           console.log('Processing file:', fileName, 'extension:', fileExt, 'url:', url);
-          
+
           if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExt || '')) {
             try {
               console.log('Fetching image from URL:', url);
@@ -248,8 +255,8 @@ Task: Extract specifications and provide realistic estimates for the Indian mark
               const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
               console.log('Image converted to base64, length:', base64.length);
               parts.push({
-                inline_data: {
-                  mime_type: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
+                inlineData: {
+                  mimeType: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
                   data: base64
                 }
               });
@@ -262,10 +269,8 @@ Task: Extract specifications and provide realistic estimates for the Indian mark
           }
         }
 
-        // Add metadata
         parts.push({ text: `\nMetadata: Quantity: ${quantity}, Priority: ${priority}, Currency: ${currency}` });
       } else {
-        // Only description, no documents
         const structuredData = {
           user_description: description,
           metadata: { quantity, priority, currency },
@@ -280,71 +285,27 @@ Provide realistic estimates for the Indian market. Consider standard manufacturi
       }
     }
 
-    // Build messages for Lovable AI Gateway
-    const messages: any[] = [
-      { role: "system", content: SYSTEM_PROMPT }
-    ];
+    console.log('Calling Gemini API');
 
-    // Combine all text parts into user message
-    const userContent = parts.map(p => p.text || "").filter(Boolean).join("\n\n");
-    if (userContent) {
-      messages.push({ role: "user", content: userContent });
-    } else {
-      messages.push({ role: "user", content: userPrompt });
-    }
+    const response = await callGemini(GEMINI_API_KEY, parts, SYSTEM_PROMPT);
 
-    console.log('Calling Lovable AI Gateway');
-
-    const response = await fetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          messages,
-        }),
-      }
-    );
-
-    console.log('AI Gateway response status:', response.status);
+    console.log('Gemini API response status:', response.status);
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("AI Gateway error:", response.status, errorText);
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Payment required. Please add funds to your Lovable workspace." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      return new Response(
-        JSON.stringify({ error: "AI gateway error: " + errorText }),
-        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return geminiErrorResponse(response.status, errorText);
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+    const content = extractGeminiText(data);
 
     if (!content) {
       console.error("No content in AI response:", JSON.stringify(data));
       throw new Error("No content in AI response");
     }
 
-    // Parse JSON from response
     let parsedResponse;
     try {
-      // Try to extract JSON from markdown code blocks if present
       const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || content.match(/```\n([\s\S]*?)\n```/);
       const jsonStr = jsonMatch ? jsonMatch[1] : content;
       parsedResponse = JSON.parse(jsonStr);
@@ -353,7 +314,6 @@ Provide realistic estimates for the Indian market. Consider standard manufacturi
       throw new Error("Failed to parse AI response as JSON");
     }
 
-    // Add queryId for refinement tracking
     parsedResponse.queryId = queryId || `q_${Date.now()}`;
 
     return new Response(JSON.stringify(parsedResponse), {
