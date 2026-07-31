@@ -132,8 +132,8 @@ const SupplierProducts = () => {
       for (let i = 0; i < Math.min(files.length, 5); i++) {
         const file = files[i];
         const fileExt = file.name.split('.').pop();
-        const fileName = `${user.id}-${Date.now()}-${Math.random()}.${fileExt}`;
-        const filePath = `product-images/${fileName}`;
+        const fileName = `${Date.now()}-${Math.random()}.${fileExt}`;
+        const filePath = `${user.id}/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
           .from('product-images')
