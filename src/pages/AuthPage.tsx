@@ -123,10 +123,16 @@ const AuthPage = () => {
       role,
     });
 
-    if (error) {
+    const isEmailDeliveryFailure = error?.toLowerCase().includes('confirmation email') || error?.toLowerCase().includes('sending email');
+
+    if (error && !isEmailDeliveryFailure) {
       setError(error);
       setIsLoading(false);
       return;
+    }
+
+    if (isEmailDeliveryFailure) {
+      setMessage("Your account details were saved, but we couldn't send the verification email right now. If you have a code (e.g. from an admin), enter it below.");
     }
 
     setPendingEmail(email);
