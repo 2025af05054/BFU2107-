@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useProductsDirect } from "@/hooks/useProducts";
@@ -180,14 +181,14 @@ const ProductsPage = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold text-foreground mb-2">🛒 Product Catalog</h1>
+    <div className="container mx-auto px-4 py-6 md:py-8">
+      <div className="mb-6 md:mb-8">
+        <h1 className="text-2xl md:text-4xl font-bold text-foreground mb-2">🛒 Product Catalog</h1>
         <p className="text-muted-foreground">Browse our extensive catalog of admin-curated products. Add items to your RFQ or save them to your wishlist</p>
       </div>
 
       {/* Search and Filters */}
-      <Card className="shadow-card mb-8">
+      <Card className="shadow-card mb-6 md:mb-8">
         <CardContent className="pt-6">
           <div className="flex flex-col lg:flex-row gap-4">
             {/* Search */}
@@ -201,10 +202,10 @@ const ProductsPage = () => {
               />
             </div>
 
-            {/* Filters */}
-            <div className="flex flex-col sm:flex-row gap-3">
+            {/* Filters - desktop */}
+            <div className="hidden lg:flex flex-row gap-3">
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger className="w-full sm:w-40">
+                <SelectTrigger className="w-40">
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -217,7 +218,7 @@ const ProductsPage = () => {
               </Select>
 
               <Select value={priceRange} onValueChange={setPriceRange}>
-                <SelectTrigger className="w-full sm:w-40">
+                <SelectTrigger className="w-40">
                   <SelectValue placeholder="Price Range" />
                 </SelectTrigger>
                 <SelectContent>
@@ -229,7 +230,7 @@ const ProductsPage = () => {
               </Select>
 
               <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-full sm:w-40">
+                <SelectTrigger className="w-40">
                   <SelectValue placeholder="Sort By" />
                 </SelectTrigger>
                 <SelectContent>
@@ -240,14 +241,78 @@ const ProductsPage = () => {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Filters - mobile: compact sheet trigger */}
+            <div className="flex lg:hidden">
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="outline" className="w-full">
+                    <Filter className="w-4 h-4 mr-2" />
+                    Filters & Sort
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="bottom" className="max-h-[80vh] overflow-y-auto">
+                  <SheetHeader>
+                    <SheetTitle>Filters & Sort</SheetTitle>
+                  </SheetHeader>
+                  <div className="flex flex-col gap-4 mt-4">
+                    <div>
+                      <p className="text-sm font-medium mb-2">Category</p>
+                      <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories.map(category => (
+                            <SelectItem key={category} value={category}>
+                              {category === 'all' ? 'All Categories' : category}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <p className="text-sm font-medium mb-2">Price Range</p>
+                      <Select value={priceRange} onValueChange={setPriceRange}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Price Range" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Prices</SelectItem>
+                          <SelectItem value="low">₹0 - ₹1,000</SelectItem>
+                          <SelectItem value="medium">₹1,000 - ₹10,000</SelectItem>
+                          <SelectItem value="high">₹10,000+</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <p className="text-sm font-medium mb-2">Sort By</p>
+                      <Select value={sortBy} onValueChange={setSortBy}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Sort By" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="name">Name A-Z</SelectItem>
+                          <SelectItem value="price-low">Price: Low to High</SelectItem>
+                          <SelectItem value="price-high">Price: High to Low</SelectItem>
+                          <SelectItem value="rating">Highest Rated</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </SheetContent>
+              </Sheet>
+            </div>
           </div>
 
           {/* View Toggle */}
           <div className="flex items-center justify-between mt-6 pt-4 border-t">
-            <p className="text-muted-foreground">
+            <p className="text-sm md:text-base text-muted-foreground">
               Showing {filteredProducts.length} of {products.length} products
             </p>
-            
+
             <div className="flex items-center gap-2">
               <Button
                 variant={viewMode === 'grid' ? 'default' : 'outline'}
@@ -278,79 +343,78 @@ const ProductsPage = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className={viewMode === 'grid' ? 'grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6' : 'space-y-4'}>
+        <div className={viewMode === 'grid' ? 'grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6' : 'space-y-4'}>
           {filteredProducts.map((product) => (
             <Card key={product.id} className={`shadow-card hover:shadow-button transition-spring group ${viewMode === 'list' ? 'flex-row overflow-hidden' : ''}`}>
               {viewMode === 'grid' ? (
                 <>
-                  <CardHeader className="p-4 pb-2">
+                  <CardHeader className="p-2 sm:p-4 pb-1 sm:pb-2">
                     <div className="relative">
-                      <ProductImageCarousel 
+                      <ProductImageCarousel
                         images={product.images}
                         productName={product.name}
                       />
                       <Button
                         size="icon"
                         variant={product.isWishlisted ? "default" : "outline"}
-                        className="absolute top-2 right-2 z-10"
+                        className="absolute top-1 right-1 sm:top-2 sm:right-2 z-10 h-7 w-7 sm:h-9 sm:w-9"
                         onClick={() => handleWishlist(product.id)}
                       >
-                        <Heart className={`w-4 h-4 ${product.isWishlisted ? 'fill-current' : ''}`} />
+                        <Heart className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${product.isWishlisted ? 'fill-current' : ''}`} />
                       </Button>
                       {!product.inStock && (
-                        <Badge variant="destructive" className="absolute bottom-2 left-2 z-10">
+                        <Badge variant="destructive" className="absolute bottom-1 left-1 sm:bottom-2 sm:left-2 z-10 text-xs">
                           Out of Stock
                         </Badge>
                       )}
                     </div>
                   </CardHeader>
-                  <CardContent className="p-4 pt-2">
-                    <CardTitle className="text-lg mb-1">{product.name}</CardTitle>
-                    <Badge variant="secondary" className="mb-2">{product.category}</Badge>
-                    <CardDescription className="mb-3 line-clamp-2">
+                  <CardContent className="p-2 sm:p-4 pt-1 sm:pt-2">
+                    <CardTitle className="text-sm sm:text-lg mb-1 line-clamp-2 sm:line-clamp-1">{product.name}</CardTitle>
+                    <Badge variant="secondary" className="mb-1 sm:mb-2 text-xs">{product.category}</Badge>
+                    <CardDescription className="mb-2 sm:mb-3 line-clamp-2 hidden sm:block">
                       {product.description}
                     </CardDescription>
-                    <div className="space-y-2">
+                    <div className="space-y-1 sm:space-y-2">
                        <div className="flex items-center justify-between text-sm">
-                         <span className="text-muted-foreground">Price:</span>
-                         <span className="font-medium">{formatPrice(product)}</span>
+                         <span className="text-muted-foreground hidden sm:inline">Price:</span>
+                         <span className="font-semibold text-base sm:text-sm sm:font-medium">{formatPrice(product)}</span>
                        </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Supplier:</span>
-                        <span className="font-medium">{product.supplier}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Rating:</span>
-                        <span className="font-medium">⭐ {product.rating}</span>
+                      <div className="flex items-center justify-between text-xs sm:text-sm">
+                        <span className="text-muted-foreground truncate">{product.supplier}</span>
+                        <span className="font-medium shrink-0 ml-1">⭐ {product.rating}</span>
                       </div>
                     </div>
                   </CardContent>
-                  <CardFooter className="p-4 pt-0">
-                    <div className="flex gap-2 w-full">
-                      <Button 
+                  <CardFooter className="p-2 sm:p-4 pt-0">
+                    <div className="flex gap-1.5 sm:gap-2 w-full">
+                      <Button
                         variant="outline"
-                        className="flex-1"
+                        size="sm"
+                        className="flex-1 px-2 sm:px-4"
                         onClick={() => handleWishlist(product.id)}
                       >
-                        <Heart className={`w-4 h-4 mr-2 ${product.isWishlisted ? 'fill-current' : ''}`} />
-                        Wishlist
+                        <Heart className={`w-4 h-4 sm:mr-2 ${product.isWishlisted ? 'fill-current' : ''}`} />
+                        <span className="hidden sm:inline">Wishlist</span>
                       </Button>
-                      <Button 
-                        className="flex-1"
+                      <Button
+                        size="sm"
+                        className="flex-1 px-2 sm:px-4"
                         onClick={() => handleAddToRFQ(product)}
                         disabled={!product.inStock}
                       >
-                        <FileText className="w-4 h-4 mr-2" />
-                        Add to RFQ
+                        <FileText className="w-4 h-4 sm:mr-2" />
+                        <span className="hidden sm:inline">Add to RFQ</span>
+                        <span className="sm:hidden">RFQ</span>
                       </Button>
                     </div>
                   </CardFooter>
                 </>
               ) : (
-                <div className="flex w-full">
-                  <div className="w-64 p-4">
+                <div className="flex flex-col sm:flex-row w-full">
+                  <div className="w-full sm:w-64 p-4 shrink-0">
                     <div className="relative">
-                      <ProductImageCarousel 
+                      <ProductImageCarousel
                         images={product.images}
                         productName={product.name}
                       />
@@ -362,15 +426,16 @@ const ProductsPage = () => {
                     </div>
                   </div>
                   <div className="flex-1 p-4">
-                    <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-start justify-between mb-2 gap-2">
                       <div>
-                        <CardTitle className="text-xl mb-1">{product.name}</CardTitle>
+                        <CardTitle className="text-lg sm:text-xl mb-1">{product.name}</CardTitle>
                         <Badge variant="secondary">{product.category}</Badge>
                       </div>
                       <Button
                         size="icon"
                         variant={product.isWishlisted ? "default" : "outline"}
                         onClick={() => handleWishlist(product.id)}
+                        className="shrink-0"
                       >
                         <Heart className={`w-4 h-4 ${product.isWishlisted ? 'fill-current' : ''}`} />
                       </Button>
@@ -378,7 +443,7 @@ const ProductsPage = () => {
                     <CardDescription className="mb-4">
                       {product.description}
                     </CardDescription>
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div className="space-y-1">
                           <p className="text-sm font-medium">
                             {formatPrice(product)}
@@ -386,14 +451,14 @@ const ProductsPage = () => {
                           <p className="text-sm text-muted-foreground">{product.supplier} • ⭐ {product.rating.toFixed(1)}</p>
                         </div>
                         <div className="flex gap-2">
-                          <Button 
+                          <Button
                             variant="outline"
                             size="sm"
                             onClick={() => handleWishlist(product.id)}
                           >
                             <Heart className={`w-4 h-4 ${product.isWishlisted ? 'fill-current' : ''}`} />
                           </Button>
-                          <Button 
+                          <Button
                             onClick={() => handleAddToRFQ(product)}
                             disabled={!product.inStock}
                           >

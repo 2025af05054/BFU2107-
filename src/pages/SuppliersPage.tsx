@@ -149,7 +149,7 @@ const SuppliersPage = () => {
         </Card>
 
         {/* Stats */}
-        <div className="grid md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6">
           <Card className="shadow-card">
             <CardContent className="pt-6 text-center">
               <div className="text-3xl font-bold text-primary mb-1">{suppliers.length}+</div>

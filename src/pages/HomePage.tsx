@@ -94,18 +94,18 @@ const HomePage = () => {
           }}></div>
         </div>
         
-        <div className="relative container mx-auto px-4 py-24">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div className="space-y-8">
+        <div className="relative container mx-auto px-4 py-12 md:py-24">
+          <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+            <div className="space-y-6 md:space-y-8">
               <div className="space-y-4">
                 <Badge className="bg-accent/10 text-accent border-accent/20 px-4 py-2 text-sm font-semibold">
                   🚀 Smart Sourcing Solutions
                 </Badge>
-                <h1 className="text-5xl md:text-6xl font-bold text-foreground leading-tight">
+                <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold text-foreground leading-tight">
                   Making Sourcing
                   <span className="text-accent block"> Smarter & Faster</span>
                 </h1>
-                <p className="text-xl text-muted-foreground leading-relaxed max-w-lg">
+                <p className="text-base sm:text-lg md:text-xl text-muted-foreground leading-relaxed max-w-lg">
                   Connect with verified suppliers, get competitive quotes, and streamline your procurement process with BUY FOR US.
                 </p>
               </div>
@@ -334,12 +334,12 @@ const HomePage = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-br from-amber-400 via-yellow-500 to-amber-600">
+      <section className="py-12 md:py-20 bg-gradient-to-br from-amber-400 via-yellow-500 to-amber-600">
         <div className="container mx-auto px-4 text-center">
-          <h2 className="text-4xl md:text-5xl font-bold text-black mb-6 drop-shadow-sm">
+          <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold text-black mb-6 drop-shadow-sm">
             Ready to Transform Your Sourcing?
           </h2>
-          <p className="text-xl text-black font-medium mb-8 max-w-2xl mx-auto drop-shadow-sm">
+          <p className="text-base sm:text-lg md:text-xl text-black font-medium mb-8 max-w-2xl mx-auto drop-shadow-sm">
             Join thousands of businesses already using BUY FOR US to streamline their procurement process.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">

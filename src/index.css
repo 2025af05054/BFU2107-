@@ -142,6 +142,15 @@
 
 /* Custom Component Classes */
 @layer components {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
   .gradient-hero {
     background: var(--gradient-hero);
   }
