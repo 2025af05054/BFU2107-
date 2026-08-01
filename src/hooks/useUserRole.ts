@@ -21,16 +21,16 @@ export const useUserRole = () => {
         const { data, error } = await supabase
           .from('user_roles')
           .select('role')
-          .eq('user_id', user.id)
-          .order('role', { ascending: true }) // admin first, then supplier, then customer
-          .limit(1)
-          .single();
+          .eq('user_id', user.id);
 
-        if (error && error.code !== 'PGRST116') {
+        if (error) {
           console.error('Error fetching user role:', error);
           setRole('customer'); // Default fallback
         } else {
-          setRole(data?.role || 'customer');
+          const roleHierarchy: Record<UserRole, number> = { admin: 3, supplier: 2, customer: 1 };
+          const roles = (data || []).map((r) => r.role as UserRole);
+          const highestRole = roles.sort((a, b) => roleHierarchy[b] - roleHierarchy[a])[0];
+          setRole(highestRole || 'customer');
         }
       } catch (error) {
         console.error('Error fetching user role:', error);

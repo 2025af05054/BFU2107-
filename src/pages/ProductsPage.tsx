@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useProductsDirect } from "@/hooks/useProducts";
 import { useRFQCart } from "@/hooks/useRFQCart";
+import { formatCurrency } from "@/lib/currency";
 import { ProductImageCarousel } from "@/components/ProductImageCarousel";
 
 interface Product {
@@ -39,7 +40,27 @@ const ProductsPage = () => {
   // Fetch products from Supabase
   const { data: productsData, isLoading, error } = useProductsDirect();
 
+  // Deterministic pseudo-random number in [0, 1) seeded by product id, so
+  // display values stay stable across re-renders/refetches instead of
+  // flickering every time productsData changes.
+  const seededRandom = (id: string): number => {
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) {
+      hash = (hash << 5) - hash + id.charCodeAt(i);
+      hash |= 0;
+    }
+    return (hash >>> 0) / 4294967295;
+  };
+
   const categories = ['all', 'Electronics', 'Industrial', 'Safety Equipment', 'Machinery', 'Tools & Hardware', 'Materials', 'Chemicals', 'Textiles', 'Automotive', 'Medical Equipment'];
+
+  // Filter thresholds are fixed at ₹1,000 / ₹10,000; labels display in the
+  // viewer's currency without changing the underlying INR comparison.
+  const priceRangeLabels = {
+    low: `${formatCurrency(0)} - ${formatCurrency(1000)}`,
+    medium: `${formatCurrency(1000)} - ${formatCurrency(10000)}`,
+    high: `${formatCurrency(10000)}+`,
+  };
 
   // Transform Supabase data to match Product interface
   const products: Product[] = useMemo(() => {
@@ -67,8 +88,8 @@ const ProductsPage = () => {
         image: product.images && product.images.length > 0 ? product.images[0] : '/placeholder.svg',
         images: product.images || [],
         supplier: product.supplier.company_name || 'Unknown Supplier',
-        rating: 4.0 + Math.random() * 1, // Random rating between 4.0-5.0
-        inStock: Math.random() > 0.1, // 90% chance of being in stock
+        rating: 4.0 + seededRandom(product.id) * 1, // Stable placeholder rating between 4.0-5.0
+        inStock: seededRandom(product.id + '-stock') > 0.1, // Stable placeholder stock status
         isWishlisted: wishlistedItems.has(product.id)
       };
     });
@@ -112,17 +133,18 @@ const ProductsPage = () => {
     setWishlistedItems(newWishlistedItems);
   };
 
-  // Helper function to format price display
+  // Helper function to format price display. Stored prices are in INR;
+  // formatCurrency converts to USD automatically for non-Indian viewers.
   const formatPrice = (product: Product): string => {
     if (product.priceMin && product.priceMax) {
       if (product.priceMin === product.priceMax) {
-        return `₹${product.priceMin.toLocaleString()}`;
+        return formatCurrency(product.priceMin);
       }
-      return `₹${product.priceMin.toLocaleString()} - ₹${product.priceMax.toLocaleString()}`;
+      return `${formatCurrency(product.priceMin)} - ${formatCurrency(product.priceMax)}`;
     } else if (product.priceMin) {
-      return `₹${product.priceMin.toLocaleString()}+`;
+      return `${formatCurrency(product.priceMin)}+`;
     } else if (product.price > 0) {
-      return `₹${product.price.toLocaleString()}`;
+      return formatCurrency(product.price);
     }
     return 'Price on request';
   };
@@ -223,9 +245,9 @@ const ProductsPage = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Prices</SelectItem>
-                  <SelectItem value="low">₹0 - ₹1,000</SelectItem>
-                  <SelectItem value="medium">₹1,000 - ₹10,000</SelectItem>
-                  <SelectItem value="high">₹10,000+</SelectItem>
+                  <SelectItem value="low">{priceRangeLabels.low}</SelectItem>
+                  <SelectItem value="medium">{priceRangeLabels.medium}</SelectItem>
+                  <SelectItem value="high">{priceRangeLabels.high}</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -280,9 +302,9 @@ const ProductsPage = () => {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">All Prices</SelectItem>
-                          <SelectItem value="low">₹0 - ₹1,000</SelectItem>
-                          <SelectItem value="medium">₹1,000 - ₹10,000</SelectItem>
-                          <SelectItem value="high">₹10,000+</SelectItem>
+                          <SelectItem value="low">{priceRangeLabels.low}</SelectItem>
+                          <SelectItem value="medium">{priceRangeLabels.medium}</SelectItem>
+                          <SelectItem value="high">{priceRangeLabels.high}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -382,7 +404,7 @@ const ProductsPage = () => {
                        </div>
                       <div className="flex items-center justify-between text-xs sm:text-sm">
                         <span className="text-muted-foreground truncate">{product.supplier}</span>
-                        <span className="font-medium shrink-0 ml-1">⭐ {product.rating}</span>
+                        <span className="font-medium shrink-0 ml-1">⭐ {product.rating.toFixed(1)}</span>
                       </div>
                     </div>
                   </CardContent>

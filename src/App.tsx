@@ -32,6 +32,7 @@ import UserDashboard from "./pages/UserDashboard";
 import SupplierUnifiedDashboard from "./pages/SupplierUnifiedDashboard";
 import SourcingAssistantPage from "./pages/SourcingAssistantPage";
 import SupplierProducts from "./pages/SupplierProducts";
+import CreateQuotePage from "./pages/CreateQuotePage";
 import { RoleBasedRoute } from "./components/RoleBasedRoute";
 
 const queryClient = new QueryClient({
@@ -80,6 +81,7 @@ const App: React.FC = () => {
               <Route path="/supplier-dashboard" element={<RoleBasedRoute allowedRoles={['supplier']}><Layout><SupplierUnifiedDashboard /></Layout></RoleBasedRoute>} />
               <Route path="/supplier-products" element={<RoleBasedRoute allowedRoles={['supplier']}><Layout><SupplierProducts /></Layout></RoleBasedRoute>} />
               <Route path="/rfq-responses" element={<RoleBasedRoute allowedRoles={['supplier']}><Layout><RFQResponses /></Layout></RoleBasedRoute>} />
+              <Route path="/quote/create/:id" element={<RoleBasedRoute allowedRoles={['supplier']}><Layout><CreateQuotePage /></Layout></RoleBasedRoute>} />
               <Route path="/rfq/:id" element={<ProtectedRoute><Layout><QuoteDetailsPage /></Layout></ProtectedRoute>} />
               <Route path="/rfq-dashboard" element={<ProtectedRoute><Layout><RFQDashboard /></Layout></ProtectedRoute>} />
               <Route path="/quote/:id" element={<ProtectedRoute><Layout><QuoteDetailsPage /></Layout></ProtectedRoute>} />

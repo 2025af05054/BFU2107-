@@ -11,8 +11,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCategoryTree, Category } from "@/hooks/useCategories";
+import { formatCurrency } from "@/lib/currency";
 import { toast } from "sonner";
-import { Plus, Edit, Trash2, Upload, Image, DollarSign, Package, AlertCircle, CheckCircle } from "lucide-react";
+import { Plus, Edit, Trash2, Upload, Image, IndianRupee, Package, AlertCircle, CheckCircle } from "lucide-react";
+
+const generateProductCode = () => `BFU${Math.floor(100000 + Math.random() * 900000)}`;
 
 interface SupplierProduct {
   id: string;
@@ -36,6 +40,7 @@ interface SupplierProduct {
 
 const SupplierProducts = () => {
   const { user } = useAuth();
+  const { data: categoryTree } = useCategoryTree();
   const [products, setProducts] = useState<SupplierProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -77,6 +82,20 @@ const SupplierProducts = () => {
     }
   };
 
+  const findCategoryName = (categoryId: string): string => {
+    const traverse = (cats: Category[]): string | null => {
+      for (const cat of cats) {
+        if (cat.id === categoryId) return cat.name;
+        if (cat.children) {
+          const found = traverse(cat.children);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    return traverse(categoryTree || []) || '';
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -84,9 +103,12 @@ const SupplierProducts = () => {
     try {
       const productData = {
         name: formData.name,
-        sku: formData.sku || null,
+        // Auto-generated once on creation; never asked of the supplier and
+        // never regenerated on edit.
+        sku: editingProduct ? formData.sku : generateProductCode(),
         description: formData.description,
-        category: formData.category,
+        category: findCategoryName(formData.category_id) || formData.category,
+        category_id: formData.category_id || null,
         price: formData.price ? parseFloat(formData.price) : null,
         price_min: formData.price_min ? parseFloat(formData.price_min) : null,
         price_max: formData.price_max ? parseFloat(formData.price_max) : null,
@@ -251,30 +273,28 @@ const SupplierProducts = () => {
                   </DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="name">Product Name *</Label>
-                      <Input
-                        id="name"
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="sku">Product Code / SKU</Label>
-                      <Input
-                        id="sku"
-                        value={formData.sku}
-                        onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-                        placeholder="Unique product identifier"
-                      />
-                    </div>
+                  <div>
+                    <Label htmlFor="name">Product Name *</Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      required
+                    />
+                    {editingProduct ? (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Product Code: <span className="font-medium">{formData.sku}</span>
+                      </p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        A product code will be generated automatically on save.
+                      </p>
+                    )}
                   </div>
 
                   <CategoryCascadeSelect
                     value={formData.category_id || ''}
-                    onChange={(value) => setFormData({ ...formData, category_id: value, category: value })}
+                    onChange={(value) => setFormData({ ...formData, category_id: value })}
                     label="Category"
                     required
                     showIcons
@@ -293,7 +313,7 @@ const SupplierProducts = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <Label htmlFor="price">Fixed Price ($)</Label>
+                      <Label htmlFor="price">Fixed Price (₹)</Label>
                       <Input
                         id="price"
                         type="number"
@@ -304,7 +324,7 @@ const SupplierProducts = () => {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="price_min">Min Price ($)</Label>
+                      <Label htmlFor="price_min">Min Price (₹)</Label>
                       <Input
                         id="price_min"
                         type="number"
@@ -315,7 +335,7 @@ const SupplierProducts = () => {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="price_max">Max Price ($)</Label>
+                      <Label htmlFor="price_max">Max Price (₹)</Label>
                       <Input
                         id="price_max"
                         type="number"
@@ -408,105 +428,106 @@ const SupplierProducts = () => {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {products.map((product) => (
-                <Card key={product.id} className="shadow-card hover:shadow-lg transition-shadow">
-                  <CardHeader className="pb-3">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <CardTitle className="text-lg line-clamp-2">{product.name}</CardTitle>
-                        <div className="flex gap-2 mt-2">
-                          {product.category && (
-                            <Badge variant="secondary">
-                              {product.category}
-                            </Badge>
-                          )}
-                          <Badge 
-                            variant={
-                              product.status === 'approved' ? 'default' : 
-                              product.status === 'pending' ? 'secondary' : 
-                              'destructive'
-                            }
-                          >
-                            {product.status === 'approved' ? <CheckCircle className="w-3 h-3 mr-1" /> : 
-                             product.status === 'pending' ? <AlertCircle className="w-3 h-3 mr-1" /> : 
-                             <AlertCircle className="w-3 h-3 mr-1" />}
-                            {product.status}
-                          </Badge>
-                        </div>
-                      </div>
-                      <div className="flex gap-1 ml-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleEdit(product)}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button size="sm" variant="outline">
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Product</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to delete "{product.name}"? This action cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleDelete(product.id)}>
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {product.images && product.images.length > 0 && (
-                      <div className="aspect-video relative rounded-md overflow-hidden bg-muted">
-                        <img
-                          src={product.images[0]}
-                          alt={product.name}
-                          className="w-full h-full object-cover"
-                        />
-                        {product.images.length > 1 && (
-                          <Badge className="absolute bottom-2 right-2">
-                            <Image className="w-3 h-3 mr-1" />
-                            +{product.images.length - 1}
-                          </Badge>
-                        )}
+                <Card key={product.id} className="overflow-hidden shadow-card hover:shadow-lg transition-shadow pt-0 gap-0">
+                  {/* Image with overlaid status + actions, matching the public catalog's card style */}
+                  <div className="relative aspect-video bg-muted">
+                    {product.images && product.images.length > 0 ? (
+                      <img
+                        src={product.images[0]}
+                        alt={product.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Package className="w-10 h-10 text-muted-foreground/40" />
                       </div>
                     )}
+                    {product.images && product.images.length > 1 && (
+                      <Badge className="absolute bottom-2 right-2">
+                        <Image className="w-3 h-3 mr-1" />
+                        +{product.images.length - 1}
+                      </Badge>
+                    )}
+                    <Badge
+                      className="absolute top-2 left-2"
+                      variant={
+                        product.status === 'approved' ? 'default' :
+                        product.status === 'pending' ? 'secondary' :
+                        'destructive'
+                      }
+                    >
+                      {product.status === 'approved' ? <CheckCircle className="w-3 h-3 mr-1" /> :
+                       product.status === 'pending' ? <AlertCircle className="w-3 h-3 mr-1" /> :
+                       <AlertCircle className="w-3 h-3 mr-1" />}
+                      {product.status}
+                    </Badge>
+                    <div className="absolute top-2 right-2 flex gap-1">
+                      <Button
+                        size="icon"
+                        variant="secondary"
+                        className="h-8 w-8 shadow-sm"
+                        onClick={() => handleEdit(product)}
+                      >
+                        <Edit className="w-3.5 h-3.5" />
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="icon" variant="secondary" className="h-8 w-8 shadow-sm">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Product</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete "{product.name}"? This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDelete(product.id)}>
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </div>
+
+                  <CardContent className="p-4 space-y-3">
+                    <div>
+                      <CardTitle className="text-base line-clamp-1">{product.name}</CardTitle>
+                      <div className="flex items-center gap-2 mt-1">
+                        {product.category && (
+                          <Badge variant="outline" className="text-xs font-normal">
+                            {product.category}
+                          </Badge>
+                        )}
+                        {product.sku && (
+                          <span className="text-xs text-muted-foreground">{product.sku}</span>
+                        )}
+                      </div>
+                    </div>
 
                     {product.description && (
-                      <p className="text-sm text-muted-foreground line-clamp-3">
+                      <p className="text-sm text-muted-foreground line-clamp-2">
                         {product.description}
                       </p>
                     )}
 
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1 text-sm">
-                        <DollarSign className="w-4 h-4 text-muted-foreground" />
-                        {product.price ? (
-                          <span className="font-medium">${product.price.toLocaleString()}</span>
-                        ) : product.price_min && product.price_max ? (
-                          <span className="font-medium">
-                            ${product.price_min.toLocaleString()} - ${product.price_max.toLocaleString()}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">Price on request</span>
-                        )}
-                      </div>
-                      <Badge variant="outline" className="gap-1">
-                        <CheckCircle className="w-3 h-3" />
-                        Available
-                      </Badge>
+                    <div className="flex items-center gap-1 text-sm pt-1">
+                      <IndianRupee className="w-4 h-4 text-muted-foreground" />
+                      {product.price ? (
+                        <span className="font-semibold">{product.price.toLocaleString('en-IN')}</span>
+                      ) : product.price_min && product.price_max ? (
+                        <span className="font-semibold">
+                          {product.price_min.toLocaleString('en-IN')} - {product.price_max.toLocaleString('en-IN')}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">Price on request</span>
+                      )}
                     </div>
 
                     <div className="text-xs text-muted-foreground pt-2 border-t">

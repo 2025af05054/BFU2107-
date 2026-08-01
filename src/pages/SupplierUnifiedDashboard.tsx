@@ -3,7 +3,7 @@ import { Building2, Package, FileText, ShoppingCart, Settings } from "lucide-rea
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import SupplierProfile from "./SupplierProfile";
+import ProfilePage from "./ProfilePage";
 import SupplierProducts from "./SupplierProducts";
 import SupplierDashboard from "./SupplierDashboard";
 import SupplierOrders from "./SupplierOrders";
@@ -43,7 +43,7 @@ const SupplierUnifiedDashboard = () => {
   const renderContent = () => {
     switch (activeSection) {
       case "profile":
-        return <SupplierProfile />;
+        return <ProfilePage />;
       case "products":
         return <SupplierProducts />;
       case "rfqs":
@@ -51,7 +51,7 @@ const SupplierUnifiedDashboard = () => {
       case "orders":
         return <SupplierOrders />;
       default:
-        return <SupplierProfile />;
+        return <ProfilePage />;
     }
   };
 

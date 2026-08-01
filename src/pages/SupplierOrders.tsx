@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -6,7 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Truck, Package, Calendar, DollarSign, MessageCircle, Search, Filter } from "lucide-react";
+import { Truck, Package, Calendar, IndianRupee, MessageCircle, Search, Filter, FileDown } from "lucide-react";
+import { ChatDialog } from "@/components/ChatDialog";
+import { toast } from "sonner";
+
+const ORDER_STATUSES = ["PO Accepted", "Order in Progress", "Out for Delivery", "Delivered"] as const;
 
 interface Order {
   id: string;
@@ -17,6 +22,7 @@ interface Order {
   delivery_date: string | null;
   delivery_address: string;
   created_at: string;
+  rfq_id: string;
   rfq: {
     rfq_number: string;
     user_id: string;
@@ -29,11 +35,14 @@ interface Order {
 
 const SupplierOrders = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [paymentFilter, setPaymentFilter] = useState("all");
+  const [chatOrder, setChatOrder] = useState<Order | null>(null);
+  const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchOrders();
@@ -54,6 +63,7 @@ const SupplierOrders = () => {
           delivery_date,
           delivery_address,
           created_at,
+          rfq_id,
           rfqs!inner(
             rfq_number,
             user_id
@@ -82,6 +92,50 @@ const SupplierOrders = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleUpdateStatus = async (orderId: string, status: string) => {
+    setUpdatingOrderId(orderId);
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ status })
+        .eq('id', orderId);
+
+      if (error) throw error;
+      toast.success("Order status updated");
+      fetchOrders();
+    } catch (error) {
+      console.error('Error updating order status:', error);
+      toast.error("Failed to update order status");
+    } finally {
+      setUpdatingOrderId(null);
+    }
+  };
+
+  const handleGenerateInvoice = (order: Order) => {
+    const lines = [
+      `INVOICE`,
+      `Order Number: ${order.order_number}`,
+      `PO Number: ${order.po_number}`,
+      `RFQ Number: ${order.rfq.rfq_number}`,
+      `Quote Number: ${order.quote.quote_number}`,
+      `Order Date: ${new Date(order.created_at).toLocaleDateString()}`,
+      `Delivery Address: ${order.delivery_address}`,
+      `Delivery Date: ${order.delivery_date ? new Date(order.delivery_date).toLocaleDateString() : 'Not set'}`,
+      ``,
+      `Total Amount: ₹${order.quote.total_amount?.toLocaleString() || 'N/A'}`,
+      `Payment Status: ${order.payment_status}`,
+      `Order Status: ${order.status}`,
+    ];
+
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `invoice-${order.order_number}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const getStatusColor = (status: string) => {
@@ -257,10 +311,10 @@ const SupplierOrders = () => {
                     {/* Order Details */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                       <div className="flex items-center gap-2">
-                        <DollarSign className="w-4 h-4 text-muted-foreground" />
+                        <IndianRupee className="w-4 h-4 text-muted-foreground" />
                         <div>
                           <p className="text-sm text-muted-foreground">Order Value</p>
-                          <p className="font-medium">${order.quote.total_amount?.toLocaleString() || 'N/A'}</p>
+                          <p className="font-medium">₹{order.quote.total_amount?.toLocaleString() || 'N/A'}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -294,18 +348,32 @@ const SupplierOrders = () => {
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex flex-wrap gap-2 pt-4 border-t">
-                      <Button variant="outline" size="sm">
+                    <div className="flex flex-wrap items-center gap-2 pt-4 border-t">
+                      <Button variant="outline" size="sm" onClick={() => setChatOrder(order)}>
                         <MessageCircle className="w-4 h-4 mr-2" />
                         Open Chat
                       </Button>
-                      <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm" onClick={() => navigate(`/rfq/${order.rfq_id}`)}>
                         View RFQ Details
                       </Button>
-                      <Button variant="outline" size="sm">
-                        Update Status
-                      </Button>
-                      <Button variant="outline" size="sm">
+                      <Select
+                        value={order.status}
+                        onValueChange={(status) => handleUpdateStatus(order.id, status)}
+                        disabled={updatingOrderId === order.id}
+                      >
+                        <SelectTrigger className="w-[180px] h-9">
+                          <SelectValue placeholder="Update Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ORDER_STATUSES.map((status) => (
+                            <SelectItem key={status} value={status}>
+                              {status}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button variant="outline" size="sm" onClick={() => handleGenerateInvoice(order)}>
+                        <FileDown className="w-4 h-4 mr-2" />
                         Generate Invoice
                       </Button>
                     </div>
@@ -316,6 +384,15 @@ const SupplierOrders = () => {
           )}
         </div>
       </div>
+
+      {chatOrder && (
+        <ChatDialog
+          open={!!chatOrder}
+          onOpenChange={(open) => !open && setChatOrder(null)}
+          rfqId={chatOrder.rfq_id}
+          rfqNumber={chatOrder.rfq.rfq_number}
+        />
+      )}
     </div>
   );
 };
