@@ -4,12 +4,23 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { useToast } from '@/components/ui/use-toast';
 import Layout from '@/components/Layout';
 import { RoleBasedRoute } from '@/components/RoleBasedRoute';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Users, Shield, Settings } from 'lucide-react';
+import { Users, Shield, Settings, Trash2, Loader2 } from 'lucide-react';
 
 interface Profile {
   id: string;
@@ -24,8 +35,9 @@ const AdminPanel = () => {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
 
   useEffect(() => {
     fetchProfiles();
@@ -123,6 +135,47 @@ const AdminPanel = () => {
         description: "Failed to update user role",
         variant: "destructive",
       });
+    }
+  };
+
+  const deleteUser = async (userId: string) => {
+    if (userId === user?.id) {
+      toast({
+        title: "Action blocked",
+        description: "You can't delete your own account.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setDeletingId(userId);
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-delete-user', {
+        body: { userId },
+        headers: session?.access_token
+          ? { Authorization: `Bearer ${session.access_token}` }
+          : undefined,
+      });
+
+      if (error || (data as { error?: string } | null)?.error) {
+        throw new Error((data as { error?: string } | null)?.error || error?.message);
+      }
+
+      toast({
+        title: "Success",
+        description: "User deleted successfully",
+      });
+
+      fetchProfiles();
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete user",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -243,6 +296,40 @@ const AdminPanel = () => {
                             <SelectItem value="admin">Admin</SelectItem>
                           </SelectContent>
                         </Select>
+
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-destructive hover:text-destructive"
+                              disabled={profile.id === user?.id || deletingId === profile.id}
+                            >
+                              {deletingId === profile.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete this user?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will permanently delete {profile.name || profile.email}'s account and all associated data. This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                onClick={() => deleteUser(profile.id)}
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     </div>
                   ))}

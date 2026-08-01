@@ -5,7 +5,7 @@ const Index = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    navigate('/home', { replace: true });
+    navigate(`/home${window.location.search}${window.location.hash}`, { replace: true });
   }, [navigate]);
 
   return null;
