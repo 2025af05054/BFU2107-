@@ -68,19 +68,9 @@ Deno.serve(async (req) => {
     })
 
     if (error) {
-      const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
-        type: 'magiclink',
-        email,
-      })
-      if (linkError) {
-        return new Response(
-          JSON.stringify({ error: linkError.message }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
       return new Response(
-        JSON.stringify({ otp: linkData.properties?.email_otp ?? null }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: error.message }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
