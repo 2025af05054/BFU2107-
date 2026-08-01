@@ -20,7 +20,7 @@ import Layout from '@/components/Layout';
 import { RoleBasedRoute } from '@/components/RoleBasedRoute';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Users, Shield, Settings, Trash2, Loader2 } from 'lucide-react';
+import { Users, Shield, Settings, Trash2, Loader2, KeyRound } from 'lucide-react';
 
 interface Profile {
   id: string;
@@ -36,6 +36,9 @@ const AdminPanel = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [testOtpEmail, setTestOtpEmail] = useState('');
+  const [testOtp, setTestOtp] = useState<string | null>(null);
+  const [testOtpLoading, setTestOtpLoading] = useState(false);
   const { toast } = useToast();
   const { user, session } = useAuth();
 
@@ -179,6 +182,36 @@ const AdminPanel = () => {
     }
   };
 
+  const getTestOtp = async () => {
+    if (!testOtpEmail) return;
+    setTestOtpLoading(true);
+    setTestOtp(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-get-test-otp', {
+        body: { email: testOtpEmail },
+        headers: session?.access_token
+          ? { Authorization: `Bearer ${session.access_token}` }
+          : undefined,
+      });
+
+      const result = data as { otp?: string; error?: string } | null;
+      if (error || result?.error) {
+        throw new Error(result?.error || error?.message);
+      }
+
+      setTestOtp(result?.otp || null);
+    } catch (error) {
+      console.error('Error getting test OTP:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to get test OTP",
+        variant: "destructive",
+      });
+    } finally {
+      setTestOtpLoading(false);
+    }
+  };
+
   const filteredProfiles = profiles.filter(profile =>
     profile.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     profile.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -246,6 +279,38 @@ const AdminPanel = () => {
               </CardContent>
             </Card>
           </div>
+
+          {/* Test OTP (bypasses email delivery, for testing while the sending domain is unverified) */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <KeyRound className="h-5 w-5" />
+                Get Test Signup OTP
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Fetches a signup verification code directly, without sending an email. Use this to test signup with any email address while domain email verification is pending.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Input
+                  placeholder="test@example.com"
+                  value={testOtpEmail}
+                  onChange={(e) => setTestOtpEmail(e.target.value)}
+                  className="max-w-sm"
+                />
+                <Button onClick={getTestOtp} disabled={testOtpLoading || !testOtpEmail}>
+                  {testOtpLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Get Code
+                </Button>
+              </div>
+              {testOtp && (
+                <p className="text-sm">
+                  Code: <span className="font-mono font-bold text-lg tracking-widest">{testOtp}</span>
+                </p>
+              )}
+            </CardContent>
+          </Card>
 
           {/* User Management */}
           <Card>
