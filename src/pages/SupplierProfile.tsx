@@ -160,20 +160,32 @@ const SupplierProfile = () => {
     const file = event.target.files?.[0];
     if (!file || !user) return;
 
+    if (!file.type.startsWith('image/')) {
+      toast.error("Please upload an image file (JPG, PNG or GIF).");
+      event.target.value = '';
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Image is too large. Max size is 2MB.");
+      event.target.value = '';
+      return;
+    }
+
     setUploading(true);
     try {
       const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}-${Math.random()}.${fileExt}`;
-      const filePath = `avatars/${fileName}`;
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `${user.id}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file);
+        .from('product-images')
+        .upload(filePath, file, { upsert: true });
 
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
+        .from('product-images')
         .getPublicUrl(filePath);
 
       const { error: updateError } = await supabase
@@ -187,7 +199,7 @@ const SupplierProfile = () => {
       toast.success("Avatar updated successfully!");
     } catch (error) {
       console.error('Error uploading avatar:', error);
-      toast.error("Failed to upload avatar");
+      toast.error(error instanceof Error ? error.message : "Failed to upload avatar");
     } finally {
       setUploading(false);
     }
