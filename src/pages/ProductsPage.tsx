@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Search, Filter, Grid, List, Heart, Plus, Loader2, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +9,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useProductsDirect } from "@/hooks/useProducts";
-import { useRFQCart } from "@/hooks/useRFQCart";
+import { useRFQCart } from "@/contexts/RFQCartContext";
 import { formatCurrency } from "@/lib/currency";
 import { ProductImageCarousel } from "@/components/ProductImageCarousel";
 
@@ -30,8 +31,14 @@ interface Product {
 
 const ProductsPage = () => {
   const { addIdentifiedProduct } = useRFQCart();
+  const [searchParams] = useSearchParams();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
+
+  useEffect(() => {
+    const search = searchParams.get('search');
+    if (search !== null) setSearchQuery(search);
+  }, [searchParams]);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [sortBy, setSortBy] = useState('name');
   const [priceRange, setPriceRange] = useState('all');

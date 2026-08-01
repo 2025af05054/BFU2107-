@@ -8,7 +8,7 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import heroImage from "@/assets/hero-b2b.jpg";
 import { useProducts } from "@/hooks/useProducts";
-import { useRFQCart } from "@/hooks/useRFQCart";
+import { useRFQCart } from "@/contexts/RFQCartContext";
 
 const HomePage = () => {
   const { data: productsData, isLoading: productsLoading } = useProducts();

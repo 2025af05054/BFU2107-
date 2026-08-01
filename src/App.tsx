@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { RFQCartProvider } from "@/contexts/RFQCartContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Layout from "@/components/Layout";
 import Index from "./pages/Index";
@@ -12,6 +13,7 @@ import HomePage from "./pages/HomePage";
 import RFQPage from "./pages/RFQPage";
 import ProductsPage from "./pages/ProductsPage";
 import SuppliersPage from "./pages/SuppliersPage";
+import SupplierProfilePage from "./pages/SupplierProfilePage";
 import AboutPage from "./pages/AboutPage";
 import SupportPage from "./pages/SupportPage";
 import NotFound from "./pages/NotFound";
@@ -52,12 +54,14 @@ const App: React.FC = () => {
         <ShadcnToaster />
         <BrowserRouter>
           <AuthProvider>
+          <RFQCartProvider>
             <Routes>
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/" element={<Layout><Index /></Layout>} />
               <Route path="/home" element={<Layout><HomePage /></Layout>} />
               <Route path="/products" element={<Layout><ProductsPage /></Layout>} />
               <Route path="/suppliers" element={<Layout><SuppliersPage /></Layout>} />
+              <Route path="/suppliers/:id" element={<Layout><SupplierProfilePage /></Layout>} />
               <Route path="/about" element={<Layout><AboutPage /></Layout>} />
               <Route path="/support" element={<Layout><SupportPage /></Layout>} />
               <Route path="/sourcing-assistant" element={<Layout><SourcingAssistantPage /></Layout>} />
@@ -87,6 +91,7 @@ const App: React.FC = () => {
               <Route path="/quote/:id" element={<ProtectedRoute><Layout><QuoteDetailsPage /></Layout></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
+          </RFQCartProvider>
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>

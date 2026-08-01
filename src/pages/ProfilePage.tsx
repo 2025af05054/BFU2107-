@@ -105,9 +105,13 @@ const ProfilePage = () => {
       });
     } else {
       // No supplier row yet (e.g. role assigned but never opened supplier dashboard) - create one.
+      // company_name is NOT NULL in the DB but may not be known yet, so we
+      // use an empty string as a placeholder-free sentinel; the supplier is
+      // then required to set a real name before the row appears publicly
+      // (see the empty-name filter in SuppliersPage / SupplierProfilePage).
       const { data: newSupplier, error: createError } = await supabase
         .from('suppliers')
-        .insert({ id: user.id, company_name: profile.company || 'Company Name Required', contact_info: {} })
+        .insert({ id: user.id, company_name: profile.company || '', contact_info: {} })
         .select('created_at, contact_info')
         .single();
 
@@ -119,6 +123,11 @@ const ProfilePage = () => {
 
   const handleSave = async () => {
     if (!user) return;
+
+    if (isSupplier() && supplierInfo && !profile.company?.trim()) {
+      toast.error("Company name is required for supplier profiles");
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -136,7 +145,7 @@ const ProfilePage = () => {
         const { error: supplierError } = await supabase
           .from('suppliers')
           .update({
-            company_name: profile.company || 'Company Name Required',
+            company_name: profile.company.trim(),
             contact_info: {
               categories: supplierInfo.categories,
               description: supplierInfo.description

@@ -9,8 +9,9 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { useSupabaseWorkflow, CreateRFQData } from "@/hooks/useSupabaseWorkflow";
 import { useAuth } from "@/contexts/AuthContext";
-import { useRFQCart } from "@/hooks/useRFQCart";
+import { useRFQCart } from "@/contexts/RFQCartContext";
 import { supabase } from "@/integrations/supabase/client";
+import BrowseProductsDialog from "@/components/BrowseProductsDialog";
 
 interface UserProfile {
   name?: string;
@@ -28,6 +29,7 @@ const RFQPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile>({});
   const [uploading, setUploading] = useState<string | null>(null);
+  const [browseDialogOpen, setBrowseDialogOpen] = useState(false);
 
   // Fetch user profile data
   useEffect(() => {
@@ -231,7 +233,7 @@ const RFQPage = () => {
           </CardHeader>
           <CardContent>
             <div className="flex gap-2 mb-4">
-              <Button type="button" onClick={() => navigate('/products')} variant="outline">
+              <Button type="button" onClick={() => setBrowseDialogOpen(true)} variant="outline">
                 <ShoppingCart className="w-4 h-4 mr-2" />
                 Browse Products
               </Button>
@@ -405,6 +407,8 @@ const RFQPage = () => {
           Submit RFQ
         </Button>
       </form>
+
+      <BrowseProductsDialog open={browseDialogOpen} onOpenChange={setBrowseDialogOpen} />
     </div>
   );
 };

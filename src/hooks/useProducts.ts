@@ -11,6 +11,7 @@ interface SupplierProduct {
   category: string;
   images: string[];
   supplier_name?: string;
+  supplier_id: string;
   created_at: string;
   supplier: {
     company_name: string;
@@ -61,6 +62,7 @@ export const useProductsDirect = () => {
           category,
           images,
           supplier_name,
+          supplier_id,
           created_at,
           suppliers(
             company_name,
@@ -81,6 +83,7 @@ export const useProductsDirect = () => {
         price_max: product.price_max || 0,
         category: product.category || 'Uncategorized',
         images: product.images || [],
+        supplier_id: product.supplier_id,
         created_at: product.created_at,
         supplier: {
           company_name: product.suppliers?.company_name || product.supplier_name || 'Unknown Supplier',

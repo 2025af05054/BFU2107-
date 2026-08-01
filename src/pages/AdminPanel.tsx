@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/use-toast';
 import Layout from '@/components/Layout';
 import { RoleBasedRoute } from '@/components/RoleBasedRoute';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Users, Shield, Settings } from 'lucide-react';
 
 interface Profile {
@@ -24,6 +25,7 @@ const AdminPanel = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
+  const { user } = useAuth();
 
   useEffect(() => {
     fetchProfiles();
@@ -50,24 +52,20 @@ const AdminPanel = () => {
 
       if (rolesError) throw rolesError;
 
-      // Fetch auth users for email (this requires admin access)
-      let users: any[] = [];
-      try {
-        const { data: { users: authUsers } } = await supabase.auth.admin.listUsers();
-        users = authUsers || [];
-      } catch (error) {
-        console.log('Cannot fetch auth users - admin access required');
-        // Continue without email data
-      }
+      // Fetch emails via admin-only RPC (client cannot call the Supabase admin API directly)
+      const { data: emailsData, error: emailsError } = await supabase
+        .rpc('get_all_user_emails');
+
+      if (emailsError) console.error('Error fetching user emails:', emailsError);
 
       // Combine the data
       const combinedData: Profile[] = profilesData?.map(profile => {
         const userRole = rolesData?.find(role => role.user_id === profile.id);
-        const authUser = users?.find((user: any) => user.id === profile.id);
-        
+        const emailRow = emailsData?.find((row) => row.id === profile.id);
+
         return {
           ...profile,
-          email: authUser?.email || 'N/A',
+          email: emailRow?.email || 'N/A',
           role: userRole?.role || 'customer'
         };
       }) || [];
@@ -86,6 +84,15 @@ const AdminPanel = () => {
   };
 
   const updateUserRole = async (userId: string, newRole: 'admin' | 'supplier' | 'customer') => {
+    if (userId === user?.id && newRole !== 'admin') {
+      toast({
+        title: "Action blocked",
+        description: "You can't remove your own admin role.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       // Delete existing role
       await supabase

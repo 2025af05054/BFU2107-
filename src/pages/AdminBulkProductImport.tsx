@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Upload, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
+import { useSuppliersDirect } from '@/hooks/useSuppliers';
 
 interface ProductRow {
   name: string;
@@ -34,6 +35,7 @@ export default function AdminBulkProductImport() {
   const [defaultSupplier, setDefaultSupplier] = useState<string>('');
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { data: suppliers } = useSuppliersDirect();
 
   const parseCSV = (text: string): ProductRow[] => {
     const lines = text.split('\n').filter(line => line.trim());
@@ -207,15 +209,24 @@ export default function AdminBulkProductImport() {
           <div className="space-y-4">
             <div>
               <Label htmlFor="supplier">Default Supplier *</Label>
-              <Input
-                id="supplier"
-                placeholder="Enter supplier ID (UUID)"
+              <Select
                 value={defaultSupplier}
-                onChange={(e) => setDefaultSupplier(e.target.value)}
+                onValueChange={setDefaultSupplier}
                 disabled={importing}
-              />
+              >
+                <SelectTrigger id="supplier">
+                  <SelectValue placeholder="Select a supplier" />
+                </SelectTrigger>
+                <SelectContent>
+                  {suppliers?.map((supplier) => (
+                    <SelectItem key={supplier.id} value={supplier.id}>
+                      {supplier.company_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <p className="text-sm text-muted-foreground mt-1">
-                All products will be assigned to this supplier
+                Products with a Brand column use that as the display name, but are all assigned to this supplier account
               </p>
             </div>
 

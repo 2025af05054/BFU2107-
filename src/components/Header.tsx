@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Search, User, Bell, LogOut, Package, ChevronDown, Menu } from "lucide-react";
+import { Search, User, Bell, LogOut, Package, ChevronDown, Menu, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,14 +15,25 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import QuoteNotification from "./QuoteNotification";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useRFQCart } from "@/contexts/RFQCartContext";
 
 const Header = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { role, isAdmin, isSupplier, isCustomer } = useUserRole();
+  const { getCartCount } = useRFQCart();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [mobileSearchQuery, setMobileSearchQuery] = useState('');
+  const cartCount = getCartCount();
 
   const isActive = (path: string) => location.pathname === path;
+
+  const runSearch = (query: string) => {
+    const trimmed = query.trim();
+    navigate(trimmed ? `/products?search=${encodeURIComponent(trimmed)}` : '/products');
+  };
 
   const navItems = [
     { name: "Home", path: "/" },
@@ -95,6 +106,14 @@ const Header = () => {
                     <Input
                       placeholder="Search products, suppliers..."
                       className="pl-10 bg-muted/50 border-muted"
+                      value={mobileSearchQuery}
+                      onChange={(e) => setMobileSearchQuery(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          setMobileMenuOpen(false);
+                          runSearch(mobileSearchQuery);
+                        }
+                      }}
                     />
                   </div>
                 </div>
@@ -183,6 +202,11 @@ const Header = () => {
               <Input
                 placeholder="Search products, suppliers, or categories..."
                 className="pl-10 bg-muted/50 border-muted focus:bg-background transition-smooth"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') runSearch(searchQuery);
+                }}
               />
             </div>
           </div>
@@ -196,6 +220,19 @@ const Header = () => {
               </Link>
             </Button>
             <QuoteNotification />
+
+            {user && isCustomer() && (
+              <Button variant="outline" size="icon" className="relative" asChild>
+                <Link to="/rfq" aria-label="RFQ cart">
+                  <ShoppingCart className="w-4 h-4" />
+                  {cartCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold flex items-center justify-center">
+                      {cartCount}
+                    </span>
+                  )}
+                </Link>
+              </Button>
+            )}
 
             {user ? (
               <DropdownMenu>
@@ -237,7 +274,19 @@ const Header = () => {
           </div>
 
           {/* Action buttons - mobile: single account icon only, rest live in the drawer */}
-          <div className="flex md:hidden items-center shrink-0">
+          <div className="flex md:hidden items-center shrink-0 gap-1">
+            {user && isCustomer() && (
+              <Button variant="ghost" size="icon" className="relative" asChild>
+                <Link to="/rfq" aria-label="RFQ cart">
+                  <ShoppingCart className="w-5 h-5" />
+                  {cartCount > 0 && (
+                    <span className="absolute top-0.5 right-0.5 min-w-[16px] h-[16px] px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-semibold flex items-center justify-center">
+                      {cartCount}
+                    </span>
+                  )}
+                </Link>
+              </Button>
+            )}
             {user ? (
               <Button variant="ghost" size="icon" asChild>
                 <Link to="/user-dashboard" aria-label="Account">
@@ -259,6 +308,11 @@ const Header = () => {
             <Input
               placeholder="Search products, suppliers..."
               className="pl-10 h-11 rounded-full bg-muted/50 border-muted focus:bg-background transition-smooth"
+              value={mobileSearchQuery}
+              onChange={(e) => setMobileSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') runSearch(mobileSearchQuery);
+              }}
             />
           </div>
         </div>
