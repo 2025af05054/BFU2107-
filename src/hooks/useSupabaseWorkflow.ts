@@ -193,87 +193,12 @@ export const useSupabaseWorkflow = () => {
       console.log('Products created successfully');
 
       toast.success('RFQ submitted successfully!');
-      
-      // Simulate quote generation after 3 seconds
-      setTimeout(() => {
-        generateQuote(rfq.id);
-      }, 3000);
 
       await fetchRFQs();
       return rfq.id;
     } catch (error) {
       console.error('Error submitting RFQ:', error);
       return null;
-    }
-  };
-
-  // Generate quote (simulation)
-  const generateQuote = async (rfqId: string) => {
-    try {
-      // Get RFQ with products
-      const { data: rfq, error: rfqError } = await supabase
-        .from('rfqs')
-        .select(`
-          *,
-          products (*)
-        `)
-        .eq('id', rfqId)
-        .single();
-
-      if (rfqError) throw rfqError;
-
-      const suppliers = [
-        { name: 'TechComponents Ltd', id: '1' },
-        { name: 'Industrial Parts Co', id: '2' },
-        { name: 'Global Trading Corp', id: '3' },
-      ];
-
-      const randomSupplier = suppliers[Math.floor(Math.random() * suppliers.length)];
-
-      // Create quote (auto-generates quote_number via trigger)
-      const { data: quote, error: quoteError } = await supabase
-        .from('quotes')
-        .insert([{
-          rfq_id: rfqId,
-          supplier_id: randomSupplier.id,
-          supplier_name: randomSupplier.name,
-          total_amount: Math.round((rfq.products?.reduce((sum: number, p: any) => 
-            sum + (p.target_price || 1000) * p.quantity, 0) || 10000) * 1.15),
-          valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        }] as any)
-        .select()
-        .single();
-
-      if (quoteError) throw quoteError;
-
-      // Create product quotes
-      if (rfq.products) {
-        const productQuotesToInsert = rfq.products.map((product: any) => ({
-          quote_id: quote.id,
-          product_id: product.id,
-          unit_price: Math.round((product.target_price || 1000) * (0.8 + Math.random() * 0.4)),
-          lead_time: Math.round((product.target_lead_time || 14) * (0.8 + Math.random() * 0.4)),
-          terms: '30 days payment terms, FOB Origin',
-        }));
-
-        const { error: productQuotesError } = await supabase
-          .from('product_quotes')
-          .insert(productQuotesToInsert);
-
-        if (productQuotesError) throw productQuotesError;
-      }
-
-      // Update RFQ status
-      await supabase
-        .from('rfqs')
-        .update({ status: 'Quoted' })
-        .eq('id', rfqId);
-
-      toast.success('New quote received!');
-      await fetchRFQs();
-      await fetchQuotes();
-    } catch (error) {
-      console.error('Error generating quote:', error);
     }
   };
 
@@ -284,10 +209,12 @@ export const useSupabaseWorkflow = () => {
       if (!quote) return;
 
       // Update quote status
-      await supabase
+      const { error: quoteUpdateError } = await supabase
         .from('quotes')
         .update({ status: 'Accepted' })
         .eq('id', quoteId);
+
+      if (quoteUpdateError) throw quoteUpdateError;
 
       // Create order (auto-generates order_number via trigger)
       const { error: orderError } = await supabase
@@ -303,10 +230,12 @@ export const useSupabaseWorkflow = () => {
       if (orderError) throw orderError;
 
       // Update RFQ status
-      await supabase
+      const { error: rfqUpdateError } = await supabase
         .from('rfqs')
-        .update({ status: 'Closed' })
+        .update({ status: 'Order_Placed' })
         .eq('id', quote.rfq_id);
+
+      if (rfqUpdateError) throw rfqUpdateError;
 
       toast.success('Quote accepted and order created!');
       await fetchRFQs();
@@ -318,13 +247,32 @@ export const useSupabaseWorkflow = () => {
     }
   };
 
+  const rejectQuote = async (quoteId: string) => {
+    try {
+      const { error } = await supabase
+        .from('quotes')
+        .update({ status: 'Rejected' })
+        .eq('id', quoteId);
+
+      if (error) throw error;
+
+      toast.success('Quote rejected. You can request a new quote or negotiate terms.');
+      await fetchQuotes();
+    } catch (error) {
+      console.error('Error rejecting quote:', error);
+      toast.error('Failed to reject quote');
+    }
+  };
+
   // Update order status
   const updateOrderStatus = async (orderId: string, status: DatabaseOrder['status']) => {
     try {
-      await supabase
+      const { error } = await supabase
         .from('orders')
         .update({ status })
         .eq('id', orderId);
+
+      if (error) throw error;
 
       toast.success('Order status updated');
       await fetchOrders();
@@ -337,10 +285,12 @@ export const useSupabaseWorkflow = () => {
   // Update payment status
   const updatePaymentStatus = async (orderId: string, paymentStatus: DatabaseOrder['payment_status']) => {
     try {
-      await supabase
+      const { error } = await supabase
         .from('orders')
         .update({ payment_status: paymentStatus })
         .eq('id', orderId);
+
+      if (error) throw error;
 
       toast.success('Payment status updated');
       await fetchOrders();
@@ -373,6 +323,7 @@ export const useSupabaseWorkflow = () => {
     loading,
     submitRFQ,
     acceptQuote,
+    rejectQuote,
     updateOrderStatus,
     updatePaymentStatus,
     refresh: () => {

@@ -94,18 +94,21 @@ const AdminPanel = () => {
     }
 
     try {
-      // Delete existing role
-      await supabase
+      // Insert the new role first, then remove old ones, so a failed
+      // insert never leaves the user with zero roles in between.
+      const { error: insertError } = await supabase
+        .from('user_roles')
+        .upsert([{ user_id: userId, role: newRole }], { onConflict: 'user_id,role' });
+
+      if (insertError) throw insertError;
+
+      const { error: deleteError } = await supabase
         .from('user_roles')
         .delete()
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .neq('role', newRole);
 
-      // Insert new role
-      const { error } = await supabase
-        .from('user_roles')
-        .insert([{ user_id: userId, role: newRole }]);
-
-      if (error) throw error;
+      if (deleteError) throw deleteError;
 
       toast({
         title: "Success",
@@ -212,25 +215,21 @@ const AdminPanel = () => {
                   {filteredProfiles.map((profile) => (
                     <div
                       key={profile.id}
-                      className="flex items-center justify-between p-4 border rounded-lg"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border rounded-lg"
                     >
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-3">
-                          <div>
-                            <h3 className="font-medium">{profile.name || 'Unnamed User'}</h3>
-                            <p className="text-sm text-muted-foreground">{profile.email}</p>
-                            {profile.company && (
-                              <p className="text-xs text-muted-foreground">{profile.company}</p>
-                            )}
-                          </div>
-                        </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-medium truncate">{profile.name || 'Unnamed User'}</h3>
+                        <p className="text-sm text-muted-foreground truncate">{profile.email}</p>
+                        {profile.company && (
+                          <p className="text-xs text-muted-foreground truncate">{profile.company}</p>
+                        )}
                       </div>
-                      
-                      <div className="flex items-center space-x-3">
+
+                      <div className="flex items-center gap-3">
                         <Badge variant={getRoleBadgeVariant(profile.role)}>
                           {profile.role}
                         </Badge>
-                        
+
                         <Select
                           defaultValue={profile.role}
                           onValueChange={(value) => updateUserRole(profile.id, value as 'admin' | 'supplier' | 'customer')}

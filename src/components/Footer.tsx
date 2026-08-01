@@ -1,4 +1,4 @@
-import { MapPin, Phone, Mail, Briefcase, Newspaper, Users } from "lucide-react";
+import { MapPin, Phone, Mail, Briefcase, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -101,34 +101,24 @@ const Footer = () => {
 
         {/* Additional Links */}
         <div className="border-t border-card-border pt-8 mb-8">
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-2 gap-6">
             <div className="flex items-center space-x-3">
               <Briefcase className="w-5 h-5 text-primary" />
-              <Link 
-                to="/careers" 
+              <Link
+                to="/support"
                 className="text-muted-foreground hover:text-primary transition-smooth"
               >
-                Careers - Join Our Team
+                Support & Help Center
               </Link>
             </div>
-            
-            <div className="flex items-center space-x-3">
-              <Newspaper className="w-5 h-5 text-primary" />
-              <Link 
-                to="/updates" 
-                className="text-muted-foreground hover:text-primary transition-smooth"
-              >
-                Latest Updates & News
-              </Link>
-            </div>
-            
+
             <div className="flex items-center space-x-3">
               <Users className="w-5 h-5 text-primary" />
-              <Link 
-                to="/press" 
+              <Link
+                to="/about"
                 className="text-muted-foreground hover:text-primary transition-smooth"
               >
-                Press & Media
+                About Us
               </Link>
             </div>
           </div>

@@ -213,7 +213,7 @@ const ProfilePage = () => {
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-bold text-foreground mb-2">Profile</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">Profile</h1>
           <p className="text-muted-foreground">
             {isSupplier()
               ? "Manage your personal, business, and supplier information — used across your Supplier and User dashboards"

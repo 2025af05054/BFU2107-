@@ -64,7 +64,7 @@ const DashboardPage = () => {
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-bold text-foreground mb-2">📑 RFQ Dashboard</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">📑 RFQ Dashboard</h1>
           <p className="text-muted-foreground">Manage your Request for Quotations and track their progress</p>
         </div>
         <Button onClick={() => navigate('/rfq')} size="lg">

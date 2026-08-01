@@ -1,13 +1,16 @@
 import { useState } from "react";
-import { Package, Truck, CheckCircle, MessageSquare, Eye, CreditCard, Loader2 } from "lucide-react";
+import { Package, Truck, CheckCircle, MessageSquare, CreditCard, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useSupabaseWorkflow } from "@/hooks/useSupabaseWorkflow";
+import { ChatDialog } from "@/components/ChatDialog";
 
 const OrderTracking = () => {
   const { orders, rfqs, quotes, updateOrderStatus, updatePaymentStatus, loading } = useSupabaseWorkflow();
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatRfq, setChatRfq] = useState<{ id: string; rfq_number: string } | null>(null);
 
   if (loading) {
     return (
@@ -56,7 +59,7 @@ const OrderTracking = () => {
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-4xl font-bold text-foreground mb-2">Order Tracking</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">Order Tracking</h1>
         <p className="text-muted-foreground">Track your purchase orders and delivery status in real-time.</p>
       </div>
 
@@ -197,13 +200,18 @@ const OrderTracking = () => {
                   {/* Action Buttons */}
                   <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
                     <div className="flex gap-2 flex-1">
-                      <Button variant="outline" size="sm">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!rfq}
+                        onClick={() => {
+                          if (!rfq) return;
+                          setChatRfq({ id: rfq.id, rfq_number: rfq.rfq_number });
+                          setChatOpen(true);
+                        }}
+                      >
                         <MessageSquare className="w-4 h-4 mr-2" />
                         Chat with Supplier
-                      </Button>
-                      <Button variant="outline" size="sm">
-                        <Eye className="w-4 h-4 mr-2" />
-                        View Invoice
                       </Button>
                     </div>
                     
@@ -258,6 +266,15 @@ const OrderTracking = () => {
           })
         )}
       </div>
+
+      {chatRfq && (
+        <ChatDialog
+          open={chatOpen}
+          onOpenChange={setChatOpen}
+          rfqId={chatRfq.id}
+          rfqNumber={chatRfq.rfq_number}
+        />
+      )}
     </div>
   );
 };

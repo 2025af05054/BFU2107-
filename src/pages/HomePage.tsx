@@ -101,7 +101,7 @@ const HomePage = () => {
                 <Badge className="bg-accent/10 text-accent border-accent/20 px-4 py-2 text-sm font-semibold">
                   🚀 Smart Sourcing Solutions
                 </Badge>
-                <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold text-foreground leading-tight">
+                <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold text-foreground leading-tight">
                   Making Sourcing
                   <span className="text-accent block"> Smarter & Faster</span>
                 </h1>
@@ -185,7 +185,7 @@ const HomePage = () => {
       <section className="py-20 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-foreground mb-4">How BUY FOR US Works</h2>
+            <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-4">How BUY FOR US Works</h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
               Our streamlined process makes B2B sourcing simple, efficient, and reliable
             </p>
@@ -213,7 +213,7 @@ const HomePage = () => {
       <section className="py-20">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-foreground mb-4">Why Choose BUY FOR US?</h2>
+            <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-4">Why Choose BUY FOR US?</h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
               We provide comprehensive sourcing solutions that save time and reduce costs
             </p>
@@ -242,7 +242,7 @@ const HomePage = () => {
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center mb-12">
             <div>
-              <h2 className="text-4xl font-bold text-foreground mb-4">Featured Products</h2>
+              <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-4">Featured Products</h2>
               <p className="text-xl text-muted-foreground">
                 Discover top-quality products from our verified suppliers
               </p>
@@ -336,7 +336,7 @@ const HomePage = () => {
       {/* CTA Section */}
       <section className="py-12 md:py-20 bg-gradient-to-br from-amber-400 via-yellow-500 to-amber-600">
         <div className="container mx-auto px-4 text-center">
-          <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold text-black mb-6 drop-shadow-sm">
+          <h2 className="text-xl sm:text-2xl md:text-4xl font-bold text-black mb-6 drop-shadow-sm">
             Ready to Transform Your Sourcing?
           </h2>
           <p className="text-base sm:text-lg md:text-xl text-black font-medium mb-8 max-w-2xl mx-auto drop-shadow-sm">

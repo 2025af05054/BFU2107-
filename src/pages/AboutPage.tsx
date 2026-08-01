@@ -106,9 +106,9 @@ const AboutPage = () => {
           <div className="w-16 h-16 bg-gradient-to-br from-amber-400 via-yellow-500 to-amber-600 rounded-lg flex items-center justify-center mr-4 shadow-glow border-2 border-amber-300/50">
             <span className="text-black font-bold text-2xl drop-shadow-sm">BFU</span>
           </div>
-          <h1 className="text-5xl font-bold text-foreground">About BUY FOR US</h1>
+          <h1 className="text-3xl sm:text-4xl font-bold text-foreground">About BUY FOR US</h1>
         </div>
-        <p className="text-xl text-muted-foreground max-w-4xl mx-auto">
+        <p className="text-base sm:text-xl text-muted-foreground max-w-4xl mx-auto">
           Making sourcing smarter, faster, and more cost-effective for businesses while 
           supporting small manufacturers and shopkeepers in India.
         </p>

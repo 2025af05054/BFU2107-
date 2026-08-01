@@ -178,7 +178,7 @@ const RFQPage = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-4xl font-bold text-foreground mb-2">Create Request for Quote (RFQ)</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">Create Request for Quote (RFQ)</h1>
         <p className="text-muted-foreground">Submit your product requirements to receive competitive quotes from verified suppliers.</p>
         {products.length > 0 && (
           <div className="mt-4 p-3 bg-muted rounded-lg">

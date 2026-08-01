@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,12 +26,13 @@ const AuthPage = () => {
   const source = searchParams.get('source');
 
   // Redirect if already authenticated
-  if (user) {
-    if (returnTo) {
-      navigate(returnTo);
-    } else {
-      navigate('/');
+  useEffect(() => {
+    if (user) {
+      navigate(returnTo || '/');
     }
+  }, [user, returnTo, navigate]);
+
+  if (user) {
     return null;
   }
 
@@ -148,7 +149,7 @@ const AuthPage = () => {
           {/* Left Side - Benefits */}
           <div className="hidden lg:flex flex-col justify-center space-y-6">
             <div>
-              <h1 className="text-4xl font-bold mb-4">
+              <h1 className="text-2xl sm:text-3xl font-bold mb-4">
                 {isSignUp ? 'Join ConnectTrade Today' : 'Welcome Back'}
               </h1>
               <p className="text-lg text-muted-foreground mb-8">

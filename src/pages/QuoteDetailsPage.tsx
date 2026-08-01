@@ -1,20 +1,29 @@
+import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, CheckCircle, X, MessageSquare, Download, Calendar, Loader2 } from "lucide-react";
+import { ArrowLeft, CheckCircle, X, MessageSquare, Calendar, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useSupabaseWorkflow } from "@/hooks/useSupabaseWorkflow";
 import { useAuth } from "@/contexts/AuthContext";
+import { ChatDialog } from "@/components/ChatDialog";
 import { toast } from "sonner";
 
 const QuoteDetailsPage = () => {
-  const { quoteId } = useParams();
-  const { quotes, rfqs, acceptQuote, loading } = useSupabaseWorkflow();
+  // This page is reached both as /quote/:id (a quote id) and as /rfq/:id
+  // (an RFQ id, used by "View RFQ" links throughout the app), so resolve
+  // the param against either.
+  const { id } = useParams();
+  const { quotes, rfqs, acceptQuote, rejectQuote, loading } = useSupabaseWorkflow();
   const { user } = useAuth();
+  const [chatOpen, setChatOpen] = useState(false);
 
-  const quote = quotes.find(q => q.id === quoteId);
-  const rfq = quote ? rfqs.find(r => r.id === quote.rfq_id) : null;
+  let quote = quotes.find(q => q.id === id);
+  const rfq = quote ? rfqs.find(r => r.id === quote.rfq_id) : rfqs.find(r => r.id === id);
+  if (!quote && rfq) {
+    quote = quotes.find(q => q.rfq_id === rfq!.id);
+  }
 
   if (loading) {
     return (
@@ -24,13 +33,29 @@ const QuoteDetailsPage = () => {
     );
   }
 
-  if (!quote || !rfq) {
+  if (!rfq) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-foreground mb-4">Quote Not Found</h1>
           <p className="text-muted-foreground mb-6">The quote you're looking for doesn't exist or has been removed.</p>
-          <Link to="/dashboard">
+          <Link to="/rfq-dashboard">
+            <Button variant="hero">Back to Dashboard</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (!quote) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-foreground mb-4">No Quote Yet</h1>
+          <p className="text-muted-foreground mb-6">
+            RFQ {rfq.rfq_number} hasn't received a supplier quote yet. Check back soon.
+          </p>
+          <Link to="/rfq-dashboard">
             <Button variant="hero">Back to Dashboard</Button>
           </Link>
         </div>
@@ -47,8 +72,12 @@ const QuoteDetailsPage = () => {
     }
   };
 
-  const handleRejectQuote = () => {
-    toast.error("Quote rejected. You can request a new quote or negotiate terms.");
+  const handleRejectQuote = async () => {
+    try {
+      await rejectQuote(quote.id);
+    } catch (error) {
+      toast.error("Failed to reject quote. Please try again.");
+    }
   };
 
   const isExpired = new Date(quote.valid_until) < new Date();
@@ -57,7 +86,7 @@ const QuoteDetailsPage = () => {
     <div className="container mx-auto px-4 py-8">
       {/* Back Navigation */}
       <div className="mb-6">
-        <Link to="/dashboard" className="inline-flex items-center text-muted-foreground hover:text-foreground">
+        <Link to="/rfq-dashboard" className="inline-flex items-center text-muted-foreground hover:text-foreground">
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to RFQ Dashboard
         </Link>
@@ -67,7 +96,7 @@ const QuoteDetailsPage = () => {
       <div className="mb-8">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
-            <h1 className="text-4xl font-bold text-foreground mb-2">Quote {quote.id}</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">Quote {quote.id}</h1>
             <p className="text-muted-foreground">
               For RFQ {quote.rfq_id} • Created on {new Date(quote.created_at).toLocaleDateString()}
             </p>
@@ -268,18 +297,26 @@ const QuoteDetailsPage = () => {
               <CardTitle>Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Button variant="outline" size="sm" className="w-full">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => setChatOpen(true)}
+              >
                 <MessageSquare className="w-4 h-4 mr-2" />
-                Chat with Supplier
-              </Button>
-              <Button variant="outline" size="sm" className="w-full">
-                <Download className="w-4 h-4 mr-2" />
-                Download Quote PDF
+                Chat about this RFQ
               </Button>
             </CardContent>
           </Card>
         </div>
       </div>
+
+      <ChatDialog
+        open={chatOpen}
+        onOpenChange={setChatOpen}
+        rfqId={rfq.id}
+        rfqNumber={rfq.rfq_number}
+      />
     </div>
   );
 };

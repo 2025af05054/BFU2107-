@@ -93,7 +93,7 @@ const SupportPage = () => {
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
       <div className="text-center mb-12">
-        <h1 className="text-4xl font-bold text-foreground mb-4">Support Center</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-4">Support Center</h1>
         <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
           Get the help you need to make the most of ConnectTrade. Our support team is here to assist you.
         </p>

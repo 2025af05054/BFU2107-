@@ -21,14 +21,18 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useSupabaseWorkflow } from "@/hooks/useSupabaseWorkflow";
+import { ChatDialog } from "@/components/ChatDialog";
 import { format } from "date-fns";
 
 const OrderTrackingPage = () => {
   const navigate = useNavigate();
-  const { orders, loading } = useSupabaseWorkflow();
+  const { orders, rfqs, loading } = useSupabaseWorkflow();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [paymentFilter, setPaymentFilter] = useState('all');
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatRfqId, setChatRfqId] = useState<string | null>(null);
+  const chatRfq = chatRfqId ? rfqs.find(r => r.id === chatRfqId) : null;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -113,7 +117,7 @@ const OrderTrackingPage = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-4xl font-bold text-foreground mb-2">📦 Order Tracking</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">📦 Order Tracking</h1>
         <p className="text-muted-foreground">Track your purchase orders and delivery status</p>
       </div>
 
@@ -284,26 +288,15 @@ const OrderTrackingPage = () => {
                   <div className="flex flex-col gap-3">
                     <Button
                       variant="outline"
-                      onClick={() => navigate(`/order/${order.id}/communication`)}
+                      onClick={() => {
+                        setChatRfqId(order.rfq_id);
+                        setChatOpen(true);
+                      }}
                       className="w-full"
                     >
                       <MessageCircle className="w-4 h-4 mr-2" />
-                      Open Q&A
+                      Chat with Supplier
                     </Button>
-                    
-                    <Button
-                      variant="outline"
-                      onClick={() => navigate(`/order/${order.id}/details`)}
-                      className="w-full"
-                    >
-                      View Details
-                    </Button>
-                    
-                    {order.status === 'Delivered' && (
-                      <Button className="w-full">
-                        Rate & Review
-                      </Button>
-                    )}
                   </div>
                 </div>
               </CardContent>
@@ -311,6 +304,15 @@ const OrderTrackingPage = () => {
           ))
         )}
       </div>
+
+      {chatRfq && (
+        <ChatDialog
+          open={chatOpen}
+          onOpenChange={setChatOpen}
+          rfqId={chatRfq.id}
+          rfqNumber={chatRfq.rfq_number}
+        />
+      )}
     </div>
   );
 };
