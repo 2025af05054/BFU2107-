@@ -1,10 +1,11 @@
-import { ArrowRight, Search, Users, Globe, Zap, Shield, Truck, Star, Heart, ShoppingCart, FileText } from "lucide-react";
+import { ArrowRight, Search, Users, Globe, Zap, Shield, Truck, Star, Heart, ShoppingCart, FileText, AtSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useState } from "react";
 import { toast } from "sonner";
 import heroImage from "@/assets/hero-b2b.jpg";
 import { useProducts } from "@/hooks/useProducts";
@@ -13,6 +14,14 @@ import { useRFQCart } from "@/contexts/RFQCartContext";
 const HomePage = () => {
   const { data: productsData, isLoading: productsLoading } = useProducts();
   const { addIdentifiedProduct } = useRFQCart();
+  const navigate = useNavigate();
+  const [supplierQuery, setSupplierQuery] = useState("");
+
+  const handleSupplierSearch = () => {
+    const handle = supplierQuery.trim().toLowerCase().replace(/^@/, '');
+    if (!handle) return;
+    navigate(`/s/${handle}`);
+  };
 
   const handleAddToRFQ = (product: any) => {
     addIdentifiedProduct({
@@ -176,6 +185,28 @@ const HomePage = () => {
                   {category}
                 </Badge>
               ))}
+            </div>
+
+            <div className="mt-8 pt-8 border-t border-border text-center">
+              <h3 className="text-lg font-semibold text-foreground mb-1">Know a Supplier's Portfolio ID?</h3>
+              <p className="text-muted-foreground mb-4 text-sm">
+                Search their unique ID to view their product portfolio directly
+              </p>
+              <div className="flex gap-3 max-w-lg mx-auto">
+                <div className="flex-1 relative">
+                  <AtSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                  <Input
+                    placeholder="e.g. trp"
+                    value={supplierQuery}
+                    onChange={(e) => setSupplierQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSupplierSearch()}
+                    className="h-12 pl-10 shadow-card"
+                  />
+                </div>
+                <Button size="lg" className="px-8" onClick={handleSupplierSearch} disabled={!supplierQuery.trim()}>
+                  View Portfolio
+                </Button>
+              </div>
             </div>
           </div>
         </div>

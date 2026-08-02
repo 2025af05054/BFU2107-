@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { MapPin, Phone, Loader2, ArrowLeft, Grid3x3 } from "lucide-react";
+import { MapPin, Phone, Loader2, ArrowLeft, Grid3x3, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
@@ -52,6 +53,7 @@ const SupplierPortfolioPage = () => {
   const { addIdentifiedProduct } = useRFQCart();
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [productSearch, setProductSearch] = useState("");
 
   const supplier = rows && rows.length > 0 ? rows[0] : null;
 
@@ -59,6 +61,16 @@ const SupplierPortfolioPage = () => {
     () => (rows || []).filter((r) => r.product_id !== null),
     [rows]
   );
+
+  const filteredProducts = useMemo(() => {
+    const q = productSearch.trim().toLowerCase();
+    if (!q) return products;
+    return products.filter((r) =>
+      r.product_name?.toLowerCase().includes(q) ||
+      r.product_description?.toLowerCase().includes(q) ||
+      r.product_category?.toLowerCase().includes(q)
+    );
+  }, [products, productSearch]);
 
   const formatPrice = (row: PortfolioRow): string => {
     if (row.product_price_min && row.product_price_max) {
@@ -140,7 +152,9 @@ const SupplierPortfolioPage = () => {
           <div className="flex-1 text-center sm:text-left pb-1">
             <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-start">
               <h1 className="text-xl sm:text-2xl font-bold">{supplier.company_name}</h1>
-              <Badge variant="secondary" className="font-normal">@{supplier.username}</Badge>
+              <Badge className="bg-foreground text-background font-semibold px-3 py-1 text-sm shadow-sm">
+                @{supplier.username}
+              </Badge>
             </div>
             {supplier.bio && (
               <p className="text-sm text-muted-foreground mt-1 max-w-xl">{supplier.bio}</p>
@@ -172,13 +186,29 @@ const SupplierPortfolioPage = () => {
           PORTFOLIO
         </div>
 
+        {products.length > 0 && (
+          <div className="relative max-w-md mb-4">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+            <Input
+              placeholder={`Search ${supplier.company_name}'s products...`}
+              value={productSearch}
+              onChange={(e) => setProductSearch(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        )}
+
         {products.length === 0 ? (
           <div className="text-center py-20 border rounded-lg">
             <p className="text-muted-foreground">This supplier hasn't added any products yet.</p>
           </div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="text-center py-20 border rounded-lg">
+            <p className="text-muted-foreground">No products match "{productSearch}".</p>
+          </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1 sm:gap-2 pb-10">
-            {products.map((row) => (
+            {filteredProducts.map((row) => (
               <div
                 key={row.product_id}
                 className="relative aspect-square rounded-sm sm:rounded-md overflow-hidden bg-muted cursor-pointer group"
