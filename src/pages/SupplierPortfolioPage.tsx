@@ -137,7 +137,7 @@ const SupplierPortfolioPage = () => {
   return (
     <div className="min-h-screen">
       {/* Cover banner */}
-      <div className="h-32 sm:h-48 w-full bg-gradient-to-r from-primary/80 via-primary to-amber-500" />
+      <div className="h-32 sm:h-48 w-full bg-gradient-to-r from-amber-500 via-primary to-primary/80" />
 
       <div className="container mx-auto px-4">
         {/* Header, Instagram-profile style */}
