@@ -466,25 +466,34 @@ export type Database = {
       }
       suppliers: {
         Row: {
+          bio: string | null
           company_name: string
           contact_info: Json | null
           created_at: string
           id: string
+          logo_url: string | null
           updated_at: string
+          username: string | null
         }
         Insert: {
+          bio?: string | null
           company_name: string
           contact_info?: Json | null
           created_at?: string
           id: string
+          logo_url?: string | null
           updated_at?: string
+          username?: string | null
         }
         Update: {
+          bio?: string | null
           company_name?: string
           contact_info?: Json | null
           created_at?: string
           id?: string
+          logo_url?: string | null
           updated_at?: string
+          username?: string | null
         }
         Relationships: []
       }
@@ -545,6 +554,29 @@ export type Database = {
           id: string
         }[]
       }
+      get_supplier_portfolio: {
+        Args: { p_username: string }
+        Returns: {
+          bio: string
+          company_name: string
+          contact_info: Json
+          logo_url: string
+          product_category: string
+          product_created_at: string
+          product_description: string
+          product_id: string
+          product_images: string[]
+          product_name: string
+          product_price: number
+          product_price_max: number
+          product_price_min: number
+          product_sku: string
+          product_status: string
+          supplier_created_at: string
+          supplier_id: string
+          username: string
+        }[]
+      }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -554,6 +586,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      is_supplier_username_available: {
+        Args: { p_username: string }
         Returns: boolean
       }
     }

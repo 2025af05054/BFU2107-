@@ -14,7 +14,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCategoryTree, Category } from "@/hooks/useCategories";
 import { formatCurrency } from "@/lib/currency";
 import { toast } from "sonner";
-import { Plus, Edit, Trash2, Upload, Image, IndianRupee, Package, AlertCircle, CheckCircle } from "lucide-react";
+import { Plus, Edit, Trash2, Upload, Image, IndianRupee, Package, AlertCircle, CheckCircle, Sparkles } from "lucide-react";
 
 const generateProductCode = () => `BFU${Math.floor(100000 + Math.random() * 900000)}`;
 
@@ -46,6 +46,7 @@ const SupplierProducts = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<SupplierProduct | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [beautifying, setBeautifying] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     sku: '',
@@ -140,6 +141,36 @@ const SupplierProducts = () => {
     } catch (error) {
       console.error('Error saving product:', error);
       toast.error("Failed to save product");
+    }
+  };
+
+  const handleBeautify = async () => {
+    if (!formData.name.trim()) {
+      toast.error("Enter a product name first");
+      return;
+    }
+
+    setBeautifying(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('beautify-product', {
+        body: {
+          name: formData.name,
+          category: findCategoryName(formData.category_id) || formData.category,
+          price: formData.price || formData.price_min || formData.price_max,
+          description: formData.description,
+        },
+      });
+
+      if (error) throw error;
+      if (!data?.description) throw new Error("No description returned");
+
+      setFormData(prev => ({ ...prev, description: data.description }));
+      toast.success("Description beautified! Feel free to edit it further.");
+    } catch (error) {
+      console.error('Error beautifying product:', error);
+      toast.error("Couldn't beautify description right now. Your text is unchanged.");
+    } finally {
+      setBeautifying(false);
     }
   };
 
@@ -301,14 +332,30 @@ const SupplierProducts = () => {
                   />
 
                   <div>
-                    <Label htmlFor="description">Description</Label>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="description">Description</Label>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={handleBeautify}
+                        disabled={beautifying || !formData.name.trim()}
+                      >
+                        <Sparkles className="w-3.5 h-3.5 mr-1" />
+                        {beautifying ? "Beautifying..." : "Beautify with AI"}
+                      </Button>
+                    </div>
                     <Textarea
                       id="description"
                       value={formData.description}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                       rows={3}
-                      placeholder="Describe your product, specifications, features..."
+                      placeholder="Describe your product, specifications, features... or fill in the basics and click Beautify with AI"
                     />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Optional: fill in name, category, price and a rough description, then click "Beautify with AI" to polish it. Skip it if you'd rather write your own.
+                    </p>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

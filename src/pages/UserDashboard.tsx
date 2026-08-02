@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { User, FileText, Package, Settings } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { User, FileText, Package, Settings, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import ProfilePage from "./ProfilePage";
 import DashboardPage from "./DashboardPage";
@@ -11,6 +13,14 @@ type DashboardSection = "profile" | "rfq" | "orders";
 
 const UserDashboard = () => {
   const [activeSection, setActiveSection] = useState<DashboardSection>("profile");
+  const [productSearch, setProductSearch] = useState("");
+  const navigate = useNavigate();
+
+  const handleProductSearch = () => {
+    const query = productSearch.trim();
+    if (!query) return;
+    navigate(`/products?search=${encodeURIComponent(query)}`);
+  };
 
   const sidebarItems = [
     {
@@ -49,6 +59,26 @@ const UserDashboard = () => {
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
+        <Card className="shadow-card mb-8">
+          <CardContent className="pt-6">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                <Input
+                  placeholder="Search products, e.g. belt, sunglasses, watch..."
+                  value={productSearch}
+                  onChange={(e) => setProductSearch(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleProductSearch()}
+                  className="pl-10"
+                />
+              </div>
+              <Button onClick={handleProductSearch} disabled={!productSearch.trim()}>
+                Search Products
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Sidebar */}
           <div className="lg:col-span-1">

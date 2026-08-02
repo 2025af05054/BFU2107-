@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
-import { Search, Filter, Grid, List, Heart, Plus, Loader2, FileText } from "lucide-react";
+import { useSearchParams, useNavigate } from "react-router-dom";
+import { Search, Filter, Grid, List, Heart, Plus, Loader2, FileText, AtSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import { useProductsDirect } from "@/hooks/useProducts";
 import { useRFQCart } from "@/contexts/RFQCartContext";
 import { formatCurrency } from "@/lib/currency";
 import { ProductImageCarousel } from "@/components/ProductImageCarousel";
+import { ProductDetailDialog } from "@/components/ProductDetailDialog";
 
 interface Product {
   id: string;
@@ -32,8 +33,16 @@ interface Product {
 const ProductsPage = () => {
   const { addIdentifiedProduct } = useRFQCart();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
+  const [supplierQuery, setSupplierQuery] = useState('');
+
+  const handleSupplierSearch = () => {
+    const handle = supplierQuery.trim().toLowerCase().replace(/^@/, '');
+    if (!handle) return;
+    navigate(`/s/${handle}`);
+  };
 
   useEffect(() => {
     const search = searchParams.get('search');
@@ -43,6 +52,8 @@ const ProductsPage = () => {
   const [sortBy, setSortBy] = useState('name');
   const [priceRange, setPriceRange] = useState('all');
   const [wishlistedItems, setWishlistedItems] = useState<Set<string>>(new Set());
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   // Fetch products from Supabase
   const { data: productsData, isLoading, error } = useProductsDirect();
@@ -140,6 +151,11 @@ const ProductsPage = () => {
     setWishlistedItems(newWishlistedItems);
   };
 
+  const handleOpenDetail = (productId: string) => {
+    setSelectedProductId(productId);
+    setDetailOpen(true);
+  };
+
   // Helper function to format price display. Stored prices are in INR;
   // formatCurrency converts to USD automatically for non-Indian viewers.
   const formatPrice = (product: Product): string => {
@@ -185,6 +201,8 @@ const ProductsPage = () => {
     return filtered;
   }, [products, searchQuery, selectedCategory, priceRange, sortBy]);
 
+  const selectedProduct = products.find(p => p.id === selectedProductId) || null;
+
   if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-8 flex items-center justify-center min-h-[400px]">
@@ -215,6 +233,27 @@ const ProductsPage = () => {
         <h1 className="text-2xl md:text-4xl font-bold text-foreground mb-2">🛒 Product Catalog</h1>
         <p className="text-muted-foreground">Browse our extensive catalog of admin-curated products. Add items to your RFQ or save them to your wishlist</p>
       </div>
+
+      {/* Search Supplier by Portfolio ID */}
+      <Card className="shadow-card mb-4">
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+            <div className="flex-1 relative">
+              <AtSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+              <Input
+                placeholder="Search supplier by portfolio ID (e.g. rayban_traders)..."
+                value={supplierQuery}
+                onChange={(e) => setSupplierQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSupplierSearch()}
+                className="pl-10"
+              />
+            </div>
+            <Button onClick={handleSupplierSearch} disabled={!supplierQuery.trim()}>
+              View Supplier Portfolio
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Search and Filters */}
       <Card className="shadow-card mb-6 md:mb-8">
@@ -372,74 +411,60 @@ const ProductsPage = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className={viewMode === 'grid' ? 'grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6' : 'space-y-4'}>
+        <div className={viewMode === 'grid' ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5 sm:gap-3' : 'space-y-4'}>
           {filteredProducts.map((product) => (
-            <Card key={product.id} className={`shadow-card hover:shadow-button transition-spring group ${viewMode === 'list' ? 'flex-row overflow-hidden' : ''}`}>
-              {viewMode === 'grid' ? (
-                <>
-                  <CardHeader className="p-2 sm:p-4 pb-1 sm:pb-2">
-                    <div className="relative">
-                      <ProductImageCarousel
-                        images={product.images}
-                        productName={product.name}
-                      />
-                      <Button
-                        size="icon"
-                        variant={product.isWishlisted ? "default" : "outline"}
-                        className="absolute top-1 right-1 sm:top-2 sm:right-2 z-10 h-7 w-7 sm:h-9 sm:w-9"
-                        onClick={() => handleWishlist(product.id)}
-                      >
-                        <Heart className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${product.isWishlisted ? 'fill-current' : ''}`} />
-                      </Button>
-                      {!product.inStock && (
-                        <Badge variant="destructive" className="absolute bottom-1 left-1 sm:bottom-2 sm:left-2 z-10 text-xs">
-                          Out of Stock
-                        </Badge>
-                      )}
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-2 sm:p-4 pt-1 sm:pt-2">
-                    <CardTitle className="text-sm sm:text-lg mb-1 line-clamp-2 sm:line-clamp-1">{product.name}</CardTitle>
-                    <Badge variant="secondary" className="mb-1 sm:mb-2 text-xs">{product.category}</Badge>
-                    <CardDescription className="mb-2 sm:mb-3 line-clamp-2 hidden sm:block">
-                      {product.description}
-                    </CardDescription>
-                    <div className="space-y-1 sm:space-y-2">
-                       <div className="flex items-center justify-between text-sm">
-                         <span className="text-muted-foreground hidden sm:inline">Price:</span>
-                         <span className="font-semibold text-base sm:text-sm sm:font-medium">{formatPrice(product)}</span>
-                       </div>
-                      <div className="flex items-center justify-between text-xs sm:text-sm">
-                        <span className="text-muted-foreground truncate">{product.supplier}</span>
-                        <span className="font-medium shrink-0 ml-1">⭐ {product.rating.toFixed(1)}</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                  <CardFooter className="p-2 sm:p-4 pt-0">
-                    <div className="flex gap-1.5 sm:gap-2 w-full">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1 px-2 sm:px-4"
-                        onClick={() => handleWishlist(product.id)}
-                      >
-                        <Heart className={`w-4 h-4 sm:mr-2 ${product.isWishlisted ? 'fill-current' : ''}`} />
-                        <span className="hidden sm:inline">Wishlist</span>
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="flex-1 px-2 sm:px-4"
-                        onClick={() => handleAddToRFQ(product)}
-                        disabled={!product.inStock}
-                      >
-                        <FileText className="w-4 h-4 sm:mr-2" />
-                        <span className="hidden sm:inline">Add to RFQ</span>
-                        <span className="sm:hidden">RFQ</span>
-                      </Button>
-                    </div>
-                  </CardFooter>
-                </>
-              ) : (
+            viewMode === 'grid' ? (
+              <div
+                key={product.id}
+                className="relative aspect-square rounded-md sm:rounded-lg overflow-hidden bg-muted cursor-pointer group"
+                onClick={() => handleOpenDetail(product.id)}
+              >
+                <img
+                  src={product.image}
+                  alt={product.name}
+                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  loading="lazy"
+                />
+
+                {/* Watermark: product name overlay, Instagram-style bottom gradient */}
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent pt-8 pb-2 px-2">
+                  <p className="text-white text-xs sm:text-sm font-semibold drop-shadow-md line-clamp-1">
+                    {product.name}
+                  </p>
+                  <p className="text-white/90 text-[11px] sm:text-xs font-medium drop-shadow-md">
+                    {formatPrice(product)}
+                  </p>
+                </div>
+
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="absolute top-1 right-1 sm:top-2 sm:right-2 z-10 h-7 w-7 sm:h-8 sm:w-8 bg-black/30 hover:bg-black/50 text-white"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleWishlist(product.id);
+                  }}
+                >
+                  <Heart className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${product.isWishlisted ? 'fill-current text-red-500' : ''}`} />
+                </Button>
+
+                {product.images.length > 1 && (
+                  <div className="absolute top-1 left-1 sm:top-2 sm:left-2 z-10 flex gap-0.5">
+                    {product.images.slice(0, 5).map((_, i) => (
+                      <span key={i} className="w-1 h-1 rounded-full bg-white/80" />
+                    ))}
+                  </div>
+                )}
+
+                {!product.inStock && (
+                  <Badge variant="destructive" className="absolute top-1 left-1 sm:top-2 sm:left-2 z-10 text-[10px]">
+                    Out of Stock
+                  </Badge>
+                )}
+              </div>
+            ) : (
+            <Card key={product.id} className="shadow-card hover:shadow-button transition-spring group flex-row overflow-hidden">
+              {(
                 <div className="flex flex-col sm:flex-row w-full">
                   <div className="w-full sm:w-64 p-4 shrink-0">
                     <div className="relative">
@@ -500,9 +525,19 @@ const ProductsPage = () => {
                 </div>
               )}
             </Card>
+            )
           ))}
         </div>
       )}
+
+      <ProductDetailDialog
+        product={selectedProduct}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        formatPrice={formatPrice}
+        onWishlist={handleWishlist}
+        onAddToRFQ={handleAddToRFQ}
+      />
     </div>
   );
 };
