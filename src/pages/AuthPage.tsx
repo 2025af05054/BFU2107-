@@ -180,7 +180,7 @@ const AuthPage = () => {
       ? "Sign in to manage your business operations"
       : step === "details"
       ? "Connect with verified suppliers and buyers across India"
-      : `Enter the 6-digit code we sent to ${pendingEmail}`;
+      : `Enter the 8-digit code we sent to ${pendingEmail}`;
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -570,7 +570,7 @@ const AuthPage = () => {
                   </button>
 
                   <div className="flex justify-center">
-                    <InputOTP maxLength={6} value={otp} onChange={setOtp}>
+                    <InputOTP maxLength={8} value={otp} onChange={setOtp}>
                       <InputOTPGroup>
                         <InputOTPSlot index={0} />
                         <InputOTPSlot index={1} />
@@ -578,11 +578,13 @@ const AuthPage = () => {
                         <InputOTPSlot index={3} />
                         <InputOTPSlot index={4} />
                         <InputOTPSlot index={5} />
+                        <InputOTPSlot index={6} />
+                        <InputOTPSlot index={7} />
                       </InputOTPGroup>
                     </InputOTP>
                   </div>
 
-                  <Button type="submit" className="w-full" disabled={isLoading || otp.length !== 6}>
+                  <Button type="submit" className="w-full" disabled={isLoading || otp.length !== 8}>
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Verify &amp; Create Account
                   </Button>
