@@ -24,12 +24,52 @@ import {
   FileText,
   ArrowLeft,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 
 type Step = "signin" | "details" | "verify";
 type Role = "customer" | "supplier";
+
+const MAX_SIGNIN_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 60_000;
+
+const attemptsKey = (email: string) => `signin_attempts_${email.trim().toLowerCase()}`;
+
+const getFailedAttempts = (email: string): { count: number; lockoutUntil: number } => {
+  try {
+    const raw = sessionStorage.getItem(attemptsKey(email));
+    if (!raw) return { count: 0, lockoutUntil: 0 };
+    return JSON.parse(raw);
+  } catch {
+    return { count: 0, lockoutUntil: 0 };
+  }
+};
+
+const setFailedAttempts = (email: string, data: { count: number; lockoutUntil: number }) => {
+  sessionStorage.setItem(attemptsKey(email), JSON.stringify(data));
+};
+
+const clearFailedAttempts = (email: string) => {
+  sessionStorage.removeItem(attemptsKey(email));
+};
+
+const friendlyAuthError = (message: string): string => {
+  const lower = message.toLowerCase();
+  if (lower.includes("invalid login credentials")) {
+    return "Incorrect email or password. Please try again.";
+  }
+  if (lower.includes("email not confirmed")) {
+    return "Please verify your email before signing in. Check your inbox for the verification code.";
+  }
+  if (lower.includes("user already registered") || lower.includes("already been registered")) {
+    return "An account with this email already exists. Please sign in instead, or use \"Forgot password?\" if you don't remember your password.";
+  }
+  if (lower.includes("rate limit") || lower.includes("too many")) {
+    return "Too many attempts. Please wait a moment before trying again.";
+  }
+  return message;
+};
 
 const AuthPage = () => {
   const [step, setStep] = useState<Step>("signin");
@@ -41,6 +81,8 @@ const AuthPage = () => {
   const [pendingEmail, setPendingEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [lockoutUntil, setLockoutUntil] = useState(0);
+  const [lockoutRemaining, setLockoutRemaining] = useState(0);
   const navigate = useNavigate();
   const { user, signUpWithDetails, verifySignupOtp, resendOtp, signInWithPassword } = useAuth();
 
@@ -58,6 +100,17 @@ const AuthPage = () => {
     const t = setInterval(() => setResendCooldown((s) => Math.max(0, s - 1)), 1000);
     return () => clearInterval(t);
   }, [resendCooldown]);
+
+  useEffect(() => {
+    if (lockoutUntil <= Date.now()) {
+      setLockoutRemaining(0);
+      return;
+    }
+    const tick = () => setLockoutRemaining(Math.max(0, Math.ceil((lockoutUntil - Date.now()) / 1000)));
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [lockoutUntil]);
 
   useEffect(() => {
     const handlePageShow = (event: PageTransitionEvent) => {
@@ -80,18 +133,36 @@ const AuthPage = () => {
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setIsLoading(true);
     resetMessages();
 
     const formData = new FormData(e.currentTarget);
-    const email = formData.get("signin-email") as string;
+    const email = (formData.get("signin-email") as string).trim();
     const password = formData.get("signin-password") as string;
 
+    const { count, lockoutUntil: existingLockout } = getFailedAttempts(email);
+    if (existingLockout > Date.now()) {
+      setLockoutUntil(existingLockout);
+      setError(`Too many failed attempts. Please try again in ${Math.ceil((existingLockout - Date.now()) / 1000)}s.`);
+      return;
+    }
+
+    setIsLoading(true);
     const { error } = await signInWithPassword(email, password);
 
     if (error) {
-      setError(error);
+      const nextCount = count + 1;
+      if (nextCount >= MAX_SIGNIN_ATTEMPTS) {
+        const until = Date.now() + LOCKOUT_DURATION_MS;
+        setFailedAttempts(email, { count: 0, lockoutUntil: until });
+        setLockoutUntil(until);
+        setError(`Too many failed attempts. Your account sign-in is temporarily locked for ${LOCKOUT_DURATION_MS / 1000}s for security.`);
+      } else {
+        setFailedAttempts(email, { count: nextCount, lockoutUntil: 0 });
+        const remaining = MAX_SIGNIN_ATTEMPTS - nextCount;
+        setError(`${friendlyAuthError(error)} (${remaining} attempt${remaining === 1 ? "" : "s"} remaining)`);
+      }
     } else {
+      clearFailedAttempts(email);
       navigate(returnTo || '/');
     }
     setIsLoading(false);
@@ -103,13 +174,47 @@ const AuthPage = () => {
     resetMessages();
 
     const formData = new FormData(e.currentTarget);
-    const email = formData.get("signup-email") as string;
+    const email = (formData.get("signup-email") as string).trim();
     const password = formData.get("signup-password") as string;
-    const name = formData.get("signup-name") as string;
-    const mobile = formData.get("signup-mobile") as string;
-    const company = formData.get("signup-company") as string;
-    const address = formData.get("signup-address") as string;
-    const gst = formData.get("signup-gst") as string;
+    const name = (formData.get("signup-name") as string).trim();
+    const mobile = (formData.get("signup-mobile") as string).trim();
+    const company = (formData.get("signup-company") as string).trim();
+    const address = (formData.get("signup-address") as string).trim();
+    const gst = ((formData.get("signup-gst") as string | null) ?? "").trim();
+
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/;
+    const mobilePattern = /^(\+91[\s-]?)?[6-9]\d{9}$/;
+    const gstPattern = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+
+    if (!emailPattern.test(email)) {
+      setError("Please enter a valid business email address.");
+      setIsLoading(false);
+      return;
+    }
+
+    if (!mobilePattern.test(mobile)) {
+      setError("Please enter a valid 10-digit mobile number (e.g. +91 98765 43210).");
+      setIsLoading(false);
+      return;
+    }
+
+    if (company.length < 2) {
+      setError("Please enter a valid company name.");
+      setIsLoading(false);
+      return;
+    }
+
+    if (address.length < 10) {
+      setError("Please enter a complete address (street, city, state, PIN).");
+      setIsLoading(false);
+      return;
+    }
+
+    if (role === "supplier" && !gstPattern.test(gst.toUpperCase())) {
+      setError("Please enter a valid GST number (e.g. 22AAAAA0000A1Z5).");
+      setIsLoading(false);
+      return;
+    }
 
     const { error } = await signUpWithDetails({
       email,
@@ -125,7 +230,7 @@ const AuthPage = () => {
     const isEmailDeliveryFailure = error?.toLowerCase().includes('confirmation email') || error?.toLowerCase().includes('sending email');
 
     if (error && !isEmailDeliveryFailure) {
-      setError(error);
+      setError(friendlyAuthError(error));
       setIsLoading(false);
       return;
     }
@@ -148,7 +253,9 @@ const AuthPage = () => {
     const { error } = await verifySignupOtp(pendingEmail, otp);
 
     if (error) {
-      setError(error);
+      setError(error.toLowerCase().includes("expired") || error.toLowerCase().includes("invalid")
+        ? "That code is invalid or has expired. Please request a new one."
+        : friendlyAuthError(error));
       setIsLoading(false);
       return;
     }
@@ -183,16 +290,25 @@ const AuthPage = () => {
       : `Enter the 8-digit code we sent to ${pendingEmail}`;
 
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted/40 to-accent/10 relative overflow-hidden">
+      {/* Decorative glows */}
+      <div className="pointer-events-none absolute -top-40 -left-40 h-96 w-96 rounded-full gradient-gold blur-3xl opacity-20" />
+      <div className="pointer-events-none absolute -bottom-40 -right-40 h-96 w-96 rounded-full gradient-hero blur-3xl opacity-20" />
+
       {/* Header */}
-      <div className="border-b bg-background">
+      <div className="relative border-b border-card-border bg-background/80 backdrop-blur-sm">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Building2 className="h-8 w-8 text-primary" />
-              <span className="text-2xl font-bold">ConnectTrade</span>
-            </div>
-            <div className="text-sm text-muted-foreground">
+            <Link to="/" className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-amber-400 via-yellow-500 to-amber-600 rounded-lg flex items-center justify-center shadow-glow border-2 border-amber-300/50 sparkle-gold">
+                <span className="text-black font-bold text-lg drop-shadow-sm">BFU</span>
+              </div>
+              <div className="leading-tight">
+                <div className="text-lg font-bold text-foreground">BUY FOR US</div>
+                <div className="text-[11px] text-muted-foreground">Smart Sourcing Solutions</div>
+              </div>
+            </Link>
+            <div className="hidden sm:block text-sm font-medium text-muted-foreground">
               India's Leading B2B Marketplace
             </div>
           </div>
@@ -200,47 +316,53 @@ const AuthPage = () => {
       </div>
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
-          {/* Left Side - Benefits */}
-          <div className="hidden lg:flex flex-col justify-center space-y-6">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold mb-4">{stepTitle}</h1>
-              <p className="text-lg text-muted-foreground mb-8">{stepSubtitle}</p>
+      <div className="relative container mx-auto px-4 py-10 lg:py-16">
+        <div className="grid lg:grid-cols-2 gap-0 max-w-5xl mx-auto rounded-3xl overflow-hidden shadow-hover">
+          {/* Left Side - Gold hero panel */}
+          <div className="hidden lg:flex flex-col justify-center gap-8 p-10 gradient-gold text-black relative overflow-hidden">
+            <div className="pointer-events-none absolute -top-16 -right-16 h-56 w-56 rounded-full bg-white/20 blur-2xl" />
+            <div className="pointer-events-none absolute -bottom-20 -left-10 h-56 w-56 rounded-full bg-black/10 blur-2xl" />
+
+            <div className="relative">
+              <div className="inline-flex items-center gap-2 rounded-full bg-black/10 px-3 py-1 text-xs font-semibold mb-6">
+                <Shield className="h-3.5 w-3.5" /> Trusted by 1000+ businesses
+              </div>
+              <h1 className="text-3xl xl:text-4xl font-extrabold mb-3 leading-tight">{stepTitle}</h1>
+              <p className="text-black/80 font-medium">{stepSubtitle}</p>
             </div>
 
-            <div className="space-y-4">
-              <div className="flex items-start gap-3">
-                <div className="rounded-full bg-primary/10 p-2">
-                  <Shield className="h-5 w-5 text-primary" />
+            <div className="relative space-y-4">
+              <div className="flex items-start gap-3 bg-white/30 backdrop-blur-sm rounded-xl p-3 border border-white/40">
+                <div className="rounded-full bg-black/10 p-2">
+                  <Shield className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="font-semibold mb-1">Verified Businesses</h3>
-                  <p className="text-sm text-muted-foreground">
+                  <h3 className="font-bold mb-0.5">Verified Businesses</h3>
+                  <p className="text-sm text-black/70">
                     Connect with authenticated suppliers and buyers
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-start gap-3">
-                <div className="rounded-full bg-primary/10 p-2">
-                  <Building2 className="h-5 w-5 text-primary" />
+              <div className="flex items-start gap-3 bg-white/30 backdrop-blur-sm rounded-xl p-3 border border-white/40">
+                <div className="rounded-full bg-black/10 p-2">
+                  <Building2 className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="font-semibold mb-1">Wide Product Range</h3>
-                  <p className="text-sm text-muted-foreground">
+                  <h3 className="font-bold mb-0.5">Wide Product Range</h3>
+                  <p className="text-sm text-black/70">
                     Access thousands of products and services
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-start gap-3">
-                <div className="rounded-full bg-primary/10 p-2">
-                  <User className="h-5 w-5 text-primary" />
+              <div className="flex items-start gap-3 bg-white/30 backdrop-blur-sm rounded-xl p-3 border border-white/40">
+                <div className="rounded-full bg-black/10 p-2">
+                  <User className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="font-semibold mb-1">Easy RFQ Management</h3>
-                  <p className="text-sm text-muted-foreground">
+                  <h3 className="font-bold mb-0.5">Easy RFQ Management</h3>
+                  <p className="text-sm text-black/70">
                     Submit and track your quotes efficiently
                   </p>
                 </div>
@@ -249,25 +371,37 @@ const AuthPage = () => {
           </div>
 
           {/* Right Side - Form */}
-          <Card className="shadow-card">
-            <CardContent className="pt-6">
+          <Card className="rounded-none lg:rounded-r-3xl border-0 shadow-none bg-card">
+            <CardContent className="p-6 sm:p-10">
+              {/* Mobile-only heading */}
+              <div className="lg:hidden mb-6">
+                <h1 className="text-2xl font-bold mb-1">{stepTitle}</h1>
+                <p className="text-sm text-muted-foreground">{stepSubtitle}</p>
+              </div>
+
               {step !== "signin" && (
-                <div className="flex items-center gap-2 mb-4 text-xs font-medium text-muted-foreground">
-                  <span className={cn(step === "details" && "text-primary")}>Step 1: Your details</span>
-                  <span>—</span>
-                  <span className={cn(step === "verify" && "text-primary")}>Step 2: Verify email</span>
+                <div className="flex items-center gap-2 mb-6 text-xs font-semibold text-muted-foreground">
+                  <span className={cn("flex items-center gap-1.5", step === "details" && "text-amber-600")}>
+                    <span className={cn("h-5 w-5 rounded-full flex items-center justify-center text-[10px]", step === "details" ? "gradient-gold text-black" : "bg-muted")}>1</span>
+                    Your details
+                  </span>
+                  <span className="flex-1 h-px bg-border" />
+                  <span className={cn("flex items-center gap-1.5", step === "verify" && "text-amber-600")}>
+                    <span className={cn("h-5 w-5 rounded-full flex items-center justify-center text-[10px]", step === "verify" ? "gradient-gold text-black" : "bg-muted")}>2</span>
+                    Verify email
+                  </span>
                 </div>
               )}
 
               {step === "signin" && (
-                <div className="grid grid-cols-2 gap-2 mb-6 p-1 bg-muted rounded-lg">
-                  <Button type="button" variant="default" className="w-full">
+                <div className="grid grid-cols-2 gap-1.5 mb-8 p-1.5 bg-muted rounded-xl">
+                  <Button type="button" className="w-full gradient-gold text-black hover:shadow-gold border-0 font-bold">
                     Sign In
                   </Button>
                   <Button
                     type="button"
                     variant="ghost"
-                    className="w-full"
+                    className="w-full font-semibold"
                     onClick={() => {
                       setStep("details");
                       resetMessages();
@@ -279,11 +413,11 @@ const AuthPage = () => {
               )}
 
               {step === "details" && (
-                <div className="grid grid-cols-2 gap-2 mb-6 p-1 bg-muted rounded-lg">
+                <div className="grid grid-cols-2 gap-1.5 mb-8 p-1.5 bg-muted rounded-xl">
                   <Button
                     type="button"
                     variant="ghost"
-                    className="w-full"
+                    className="w-full font-semibold"
                     onClick={() => {
                       setStep("signin");
                       resetMessages();
@@ -291,7 +425,7 @@ const AuthPage = () => {
                   >
                     Sign In
                   </Button>
-                  <Button type="button" variant="default" className="w-full">
+                  <Button type="button" className="w-full gradient-gold text-black hover:shadow-gold border-0 font-bold">
                     Sign Up
                   </Button>
                 </div>
@@ -311,47 +445,52 @@ const AuthPage = () => {
 
               {/* Sign In Form */}
               {step === "signin" && (
-                <form onSubmit={handleSignIn} className="space-y-4">
+                <form onSubmit={handleSignIn} className="space-y-5">
                   <div className="space-y-2">
                     <Label htmlFor="signin-email">Email Address *</Label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Mail className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="signin-email"
                         name="signin-email"
                         type="email"
                         placeholder="your.email@company.com"
-                        className="pl-10"
+                        className="pl-10 h-11 rounded-xl"
                         required
                       />
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="signin-password">Password *</Label>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="signin-password">Password *</Label>
+                      <Link to="/forgot-password" className="text-xs font-semibold text-amber-600 hover:underline">
+                        Forgot password?
+                      </Link>
+                    </div>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Lock className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="signin-password"
                         name="signin-password"
                         type="password"
                         placeholder="Enter your password"
-                        className="pl-10"
+                        className="pl-10 h-11 rounded-xl"
                         required
                       />
                     </div>
                   </div>
 
-                  <Button type="submit" className="w-full" disabled={isLoading}>
+                  <Button type="submit" variant="hero" size="lg" className="w-full" disabled={isLoading || lockoutRemaining > 0}>
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Sign In to Your Account
+                    {lockoutRemaining > 0 ? `Try again in ${lockoutRemaining}s` : "Sign In to Your Account"}
                   </Button>
 
                   <p className="text-xs text-center text-muted-foreground mt-6">
                     Don't have an account?{" "}
                     <button
                       type="button"
-                      className="text-primary font-semibold hover:underline"
+                      className="text-amber-600 font-bold hover:underline"
                       onClick={() => {
                         setStep("details");
                         resetMessages();
@@ -373,13 +512,13 @@ const AuthPage = () => {
                         type="button"
                         onClick={() => setRole("customer")}
                         className={cn(
-                          "flex flex-col items-center gap-2 rounded-lg border-2 p-4 text-center transition-colors",
+                          "flex flex-col items-center gap-2 rounded-xl border-2 p-4 text-center transition-smooth",
                           role === "customer"
-                            ? "border-primary bg-primary/5"
+                            ? "border-amber-400 bg-amber-50 shadow-gold"
                             : "border-input hover:bg-muted"
                         )}
                       >
-                        <ShoppingBag className={cn("h-6 w-6", role === "customer" ? "text-primary" : "text-muted-foreground")} />
+                        <ShoppingBag className={cn("h-6 w-6", role === "customer" ? "text-amber-600" : "text-muted-foreground")} />
                         <span className="text-sm font-semibold">Buyer</span>
                         <span className="text-xs text-muted-foreground">Procurement &amp; sourcing</span>
                       </button>
@@ -387,13 +526,13 @@ const AuthPage = () => {
                         type="button"
                         onClick={() => setRole("supplier")}
                         className={cn(
-                          "flex flex-col items-center gap-2 rounded-lg border-2 p-4 text-center transition-colors",
+                          "flex flex-col items-center gap-2 rounded-xl border-2 p-4 text-center transition-smooth",
                           role === "supplier"
-                            ? "border-primary bg-primary/5"
+                            ? "border-amber-400 bg-amber-50 shadow-gold"
                             : "border-input hover:bg-muted"
                         )}
                       >
-                        <Factory className={cn("h-6 w-6", role === "supplier" ? "text-primary" : "text-muted-foreground")} />
+                        <Factory className={cn("h-6 w-6", role === "supplier" ? "text-amber-600" : "text-muted-foreground")} />
                         <span className="text-sm font-semibold">Supplier</span>
                         <span className="text-xs text-muted-foreground">Manufacturer &amp; seller</span>
                       </button>
@@ -404,13 +543,13 @@ const AuthPage = () => {
                     <div className="space-y-2">
                       <Label htmlFor="signup-name">Full Name *</Label>
                       <div className="relative">
-                        <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <User className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
                         <Input
                           id="signup-name"
                           name="signup-name"
                           type="text"
                           placeholder="John Doe"
-                          className="pl-10"
+                          className="pl-10 h-11 rounded-xl"
                           required
                         />
                       </div>
@@ -419,13 +558,15 @@ const AuthPage = () => {
                     <div className="space-y-2">
                       <Label htmlFor="signup-mobile">Mobile Number *</Label>
                       <div className="relative">
-                        <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Phone className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
                         <Input
                           id="signup-mobile"
                           name="signup-mobile"
                           type="tel"
                           placeholder="+91 98765 43210"
-                          className="pl-10"
+                          className="pl-10 h-11 rounded-xl"
+                          pattern="^(\+91[\s-]?)?[6-9]\d{9}$"
+                          title="Enter a valid 10-digit mobile number"
                           required
                         />
                       </div>
@@ -435,13 +576,13 @@ const AuthPage = () => {
                   <div className="space-y-2">
                     <Label htmlFor="signup-email">Business Email *</Label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Mail className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="signup-email"
                         name="signup-email"
                         type="email"
                         placeholder="your.email@company.com"
-                        className="pl-10"
+                        className="pl-10 h-11 rounded-xl"
                         required
                       />
                     </div>
@@ -450,13 +591,13 @@ const AuthPage = () => {
                   <div className="space-y-2">
                     <Label htmlFor="signup-company">Company Name *</Label>
                     <div className="relative">
-                      <Building2 className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Building2 className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="signup-company"
                         name="signup-company"
                         type="text"
                         placeholder="Your Company Pvt Ltd"
-                        className="pl-10"
+                        className="pl-10 h-11 rounded-xl"
                         required
                       />
                     </div>
@@ -467,13 +608,13 @@ const AuthPage = () => {
                       {role === "supplier" ? "Business Address *" : "Delivery Address *"}
                     </Label>
                     <div className="relative">
-                      <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <MapPin className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="signup-address"
                         name="signup-address"
                         type="text"
                         placeholder="Street, City, State, PIN"
-                        className="pl-10"
+                        className="pl-10 h-11 rounded-xl"
                         required
                       />
                     </div>
@@ -483,13 +624,16 @@ const AuthPage = () => {
                     <div className="space-y-2">
                       <Label htmlFor="signup-gst">GST Number *</Label>
                       <div className="relative">
-                        <FileText className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <FileText className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
                         <Input
                           id="signup-gst"
                           name="signup-gst"
                           type="text"
                           placeholder="22AAAAA0000A1Z5"
-                          className="pl-10"
+                          className="pl-10 h-11 rounded-xl uppercase"
+                          pattern="^[0-9]{2}[A-Za-z]{5}[0-9]{4}[A-Za-z]{1}[1-9A-Za-z]{1}Z[0-9A-Za-z]{1}$"
+                          title="Enter a valid 15-character GST number"
+                          maxLength={15}
                           required
                         />
                       </div>
@@ -499,20 +643,20 @@ const AuthPage = () => {
                   <div className="space-y-2">
                     <Label htmlFor="signup-password">Password *</Label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Lock className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="signup-password"
                         name="signup-password"
                         type="password"
                         placeholder="Minimum 6 characters"
-                        className="pl-10"
+                        className="pl-10 h-11 rounded-xl"
                         required
                         minLength={6}
                       />
                     </div>
                   </div>
 
-                  <div className="flex items-start space-x-2">
+                  <div className="flex items-start space-x-2 bg-muted/50 rounded-xl p-3">
                     <Checkbox
                       id="terms"
                       checked={agreedToTerms}
@@ -522,15 +666,17 @@ const AuthPage = () => {
                       htmlFor="terms"
                       className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                     >
-                      I agree to ConnectTrade's{" "}
-                      <span className="text-primary underline cursor-pointer">Terms & Conditions</span>
+                      I agree to BUY FOR US's{" "}
+                      <Link to="/terms" target="_blank" rel="noopener noreferrer" className="text-amber-600 font-semibold underline">Terms & Conditions</Link>
                       {" "}and{" "}
-                      <span className="text-primary underline cursor-pointer">Privacy Policy</span>
+                      <Link to="/policy" target="_blank" rel="noopener noreferrer" className="text-amber-600 font-semibold underline">Privacy Policy</Link>
                     </label>
                   </div>
 
                   <Button
                     type="submit"
+                    variant="hero"
+                    size="lg"
                     className="w-full"
                     disabled={isLoading || !agreedToTerms}
                   >
@@ -542,7 +688,7 @@ const AuthPage = () => {
                     Already have an account?{" "}
                     <button
                       type="button"
-                      className="text-primary font-semibold hover:underline"
+                      className="text-amber-600 font-bold hover:underline"
                       onClick={() => {
                         setStep("signin");
                         resetMessages();
@@ -584,7 +730,7 @@ const AuthPage = () => {
                     </InputOTP>
                   </div>
 
-                  <Button type="submit" className="w-full" disabled={isLoading || otp.length !== 8}>
+                  <Button type="submit" variant="hero" size="lg" className="w-full" disabled={isLoading || otp.length !== 8}>
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Verify &amp; Create Account
                   </Button>
@@ -595,7 +741,7 @@ const AuthPage = () => {
                       type="button"
                       className={cn(
                         "font-semibold hover:underline",
-                        resendCooldown > 0 ? "text-muted-foreground cursor-not-allowed" : "text-primary"
+                        resendCooldown > 0 ? "text-muted-foreground cursor-not-allowed" : "text-amber-600"
                       )}
                       onClick={handleResend}
                       disabled={resendCooldown > 0}

@@ -22,6 +22,8 @@ interface AuthContextType {
   verifySignupOtp: (email: string, token: string) => Promise<{ error: string | null }>;
   resendOtp: (email: string) => Promise<{ error: string | null }>;
   signInWithPassword: (email: string, password: string) => Promise<{ error: string | null }>;
+  sendPasswordReset: (email: string) => Promise<{ error: string | null }>;
+  updatePassword: (newPassword: string) => Promise<{ error: string | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -108,6 +110,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return { error: error ? error.message : null };
   };
 
+  const sendPasswordReset = async (email: string) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    return { error: error ? error.message : null };
+  };
+
+  const updatePassword = async (newPassword: string) => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    return { error: error ? error.message : null };
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -119,6 +133,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         verifySignupOtp,
         resendOtp,
         signInWithPassword,
+        sendPasswordReset,
+        updatePassword,
       }}
     >
       {children}

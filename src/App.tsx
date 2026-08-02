@@ -16,11 +16,15 @@ import SuppliersPage from "./pages/SuppliersPage";
 import SupplierProfilePage from "./pages/SupplierProfilePage";
 import AboutPage from "./pages/AboutPage";
 import SupportPage from "./pages/SupportPage";
+import TermsPage from "./pages/TermsPage";
+import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import NotFound from "./pages/NotFound";
 import RFQDashboard from "./pages/RFQDashboard";
 import OrderTracking from "./pages/OrderTracking";
 import QuoteDetailsPage from "./pages/QuoteDetailsPage";
 import AuthPage from "./pages/AuthPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 import AdminPanel from "./pages/AdminPanel";
 import AdminProductsPage from "./pages/AdminProductsPage";
 import AdminBulkProductImport from "./pages/AdminBulkProductImport";
@@ -57,6 +61,8 @@ const App: React.FC = () => {
           <RFQCartProvider>
             <Routes>
               <Route path="/auth" element={<AuthPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route path="/" element={<Layout><Index /></Layout>} />
               <Route path="/home" element={<Layout><HomePage /></Layout>} />
               <Route path="/products" element={<Layout><ProductsPage /></Layout>} />
@@ -64,6 +70,8 @@ const App: React.FC = () => {
               <Route path="/suppliers/:id" element={<Layout><SupplierProfilePage /></Layout>} />
               <Route path="/about" element={<Layout><AboutPage /></Layout>} />
               <Route path="/support" element={<Layout><SupportPage /></Layout>} />
+              <Route path="/terms" element={<Layout><TermsPage /></Layout>} />
+              <Route path="/policy" element={<Layout><PrivacyPolicyPage /></Layout>} />
               <Route path="/sourcing-assistant" element={<Layout><SourcingAssistantPage /></Layout>} />
               
               {/* Protected Routes */}
