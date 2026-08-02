@@ -137,7 +137,12 @@ const SupplierPortfolioPage = () => {
   return (
     <div className="min-h-screen">
       {/* Cover banner */}
-      <div className="h-32 sm:h-48 w-full bg-gradient-to-r from-amber-500 via-primary to-primary/80" />
+      <div
+        className="h-32 sm:h-48 w-full"
+        style={{
+          background: "linear-gradient(90deg, #fde68a 0%, #f6ad2b 30%, #d98324 55%, #3a2a12 85%, #17120a 100%)",
+        }}
+      />
 
       <div className="container mx-auto px-4">
         {/* Header, Instagram-profile style */}
@@ -150,7 +155,7 @@ const SupplierPortfolioPage = () => {
           </Avatar>
 
           <div className="flex-1 text-center sm:text-left pb-1">
-            <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-start">
+            <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-start bg-background/85 backdrop-blur-sm rounded-lg px-3 py-1.5 shadow-sm w-fit mx-auto sm:mx-0">
               <h1 className="text-xl sm:text-2xl font-bold">{supplier.company_name}</h1>
               <Badge className="bg-foreground text-background font-semibold px-3 py-1 text-sm shadow-sm">
                 @{supplier.username}
