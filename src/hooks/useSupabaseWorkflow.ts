@@ -8,7 +8,7 @@ export interface DatabaseRFQ {
   id: string;
   rfq_number: string;
   user_id: string;
-  status: 'Created' | 'Order_Placed' | 'PO_Raised' | 'Completed' | 'Cancelled';
+  status: 'Created' | 'Order_Placed' | 'PO_Raised' | 'Completed' | 'Cancelled' | 'Rejected';
   cancelled_by?: 'customer' | 'supplier' | null;
   // Set when the RFQ was created from one specific supplier's portfolio, so
   // it's private to that supplier instead of broadcast to everyone.
@@ -512,9 +512,12 @@ export const useSupabaseWorkflow = () => {
         .eq('id', quoteId);
       if (quoteError) throw quoteError;
 
+      // Distinct from Cancel RFQ -- this goes in the Rejected bucket, not
+      // Cancelled, so the customer can tell "I called it off" apart from
+      // "I rejected the supplier's final price" at a glance.
       const { error: rfqUpdateError } = await supabase
         .from('rfqs')
-        .update({ status: 'Cancelled', cancelled_by: 'customer' })
+        .update({ status: 'Rejected' })
         .eq('id', quote.rfq_id);
       if (rfqUpdateError) throw rfqUpdateError;
 
@@ -524,7 +527,7 @@ export const useSupabaseWorkflow = () => {
         .eq('id', quote.rfq_id)
         .single();
 
-      toast.success('Quotation rejected — RFQ closed');
+      toast.success('Quotation rejected — RFQ moved to Rejected');
       if (quote.supplier_id) {
         await notifyUser(quote.supplier_id, `Customer rejected the final quotation for RFQ ${rfqRow?.rfq_number || ''}. The RFQ is now closed.`, `/quote/${quoteId}`);
       }
@@ -679,7 +682,7 @@ export const useSupabaseWorkflow = () => {
       const rfq = rfqs.find(r => r.id === rfqId);
       if (!rfq) return;
 
-      if (rfq.status === 'Cancelled' || rfq.status === 'Completed') {
+      if (rfq.status === 'Cancelled' || rfq.status === 'Completed' || rfq.status === 'Rejected') {
         toast.error('This RFQ is already closed');
         return;
       }

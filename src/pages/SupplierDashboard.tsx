@@ -86,6 +86,11 @@ const SupplierDashboard = () => {
         return <Badge variant="secondary">New</Badge>;
       case 'quoted':
         return <Badge variant="outline">Quoted</Badge>;
+      case 'cancelled':
+      case 'rejected':
+        return <Badge variant="destructive">{status}</Badge>;
+      case 'order_placed':
+        return <Badge className="bg-green-100 text-green-800 border-green-200">Order Placed</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }

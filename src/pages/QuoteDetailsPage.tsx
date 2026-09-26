@@ -88,7 +88,7 @@ const QuoteDetailsPage = () => {
     );
   }
 
-  const rfqIsClosed = rfq.status === 'Cancelled' || rfq.status === 'Completed';
+  const rfqIsClosed = rfq.status === 'Cancelled' || rfq.status === 'Completed' || rfq.status === 'Rejected';
 
   const handleCancelRFQ = async () => {
     if (!window.confirm('Cancel this RFQ? This ends the negotiation for both sides and cannot be undone.')) return;
@@ -141,12 +141,14 @@ const QuoteDetailsPage = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-foreground mb-4">
-            {rfq.status === 'Cancelled' ? 'RFQ Cancelled' : 'No Quote Yet'}
+            {rfq.status === 'Cancelled' ? 'RFQ Cancelled' : rfq.status === 'Rejected' ? 'RFQ Rejected' : 'No Quote Yet'}
           </h1>
           <p className="text-muted-foreground mb-6">
             {rfq.status === 'Cancelled'
               ? `RFQ ${rfq.rfq_number} was cancelled${rfq.cancelled_by ? ` by the ${rfq.cancelled_by}` : ''}.`
-              : `RFQ ${rfq.rfq_number} hasn't received a supplier quote yet. Check back soon.`}
+              : rfq.status === 'Rejected'
+                ? `RFQ ${rfq.rfq_number} was rejected by the customer and is closed.`
+                : `RFQ ${rfq.rfq_number} hasn't received a supplier quote yet. Check back soon.`}
           </p>
           <div className="flex items-center justify-center gap-3">
             <Link to={backToDashboardPath}>
@@ -265,6 +267,9 @@ const QuoteDetailsPage = () => {
             )}
             {rfq.status === 'Cancelled' && (
               <Badge variant="destructive">RFQ Cancelled</Badge>
+            )}
+            {rfq.status === 'Rejected' && (
+              <Badge variant="destructive">RFQ Rejected</Badge>
             )}
           </div>
         </div>
@@ -505,6 +510,15 @@ const QuoteDetailsPage = () => {
                 </div>
               )}
 
+              {rfq.status === 'Rejected' && (
+                <div className="pt-4">
+                  <div className="flex items-center justify-center p-3 bg-red-50 rounded-lg">
+                    <X className="w-5 h-5 text-red-600 mr-2" />
+                    <span className="text-red-800 font-medium">Quotation Rejected — RFQ Closed</span>
+                  </div>
+                </div>
+              )}
+
               {/* Phase 1: negotiating. Once every item is agreed, the
                   supplier (not an automatic process) submits the formal
                   quotation. */}
@@ -549,11 +563,11 @@ const QuoteDetailsPage = () => {
                       </p>
                       <Button variant="hero" className="w-full" onClick={handleSubmitPO}>
                         <FileCheck className="w-4 h-4 mr-2" />
-                        Submit Purchase Order
+                        Accept Quote & Create PO
                       </Button>
                       <Button variant="outline" className="w-full" onClick={handleRejectQuotation}>
                         <X className="w-4 h-4 mr-2" />
-                        Reject Quotation
+                        Reject Quote
                       </Button>
                     </>
                   )}
