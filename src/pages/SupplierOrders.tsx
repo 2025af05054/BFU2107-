@@ -11,7 +11,10 @@ import { Truck, Package, Calendar, IndianRupee, MessageCircle, Search, Filter, F
 import { ChatDialog } from "@/components/ChatDialog";
 import { toast } from "sonner";
 
-const ORDER_STATUSES = ["PO Accepted", "Order in Progress", "Out for Delivery", "Delivered"] as const;
+// Statuses the supplier can move an order to manually once it's been
+// acknowledged. 'PO Submitted' -> 'PO Accepted' happens via the dedicated
+// Acknowledge PO action instead, not this dropdown.
+const ORDER_STATUSES = ["Order in Progress", "Out for Delivery", "Delivered"] as const;
 
 interface Order {
   id: string;
@@ -22,6 +25,7 @@ interface Order {
   delivery_date: string | null;
   delivery_address: string;
   created_at: string;
+  acknowledged_at: string | null;
   rfq_id: string;
   rfq: {
     rfq_number: string;
@@ -63,6 +67,7 @@ const SupplierOrders = () => {
           delivery_date,
           delivery_address,
           created_at,
+          acknowledged_at,
           rfq_id,
           rfqs!inner(
             rfq_number,
@@ -113,6 +118,35 @@ const SupplierOrders = () => {
     }
   };
 
+  // Explicit confirmation step between "customer raised a PO" and "order is
+  // actually underway" -- the fulfillment dropdown only makes sense once
+  // this has happened.
+  const handleAcknowledge = async (order: Order) => {
+    setUpdatingOrderId(order.id);
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: 'PO Accepted', acknowledged_at: new Date().toISOString() })
+        .eq('id', order.id);
+
+      if (error) throw error;
+
+      await supabase.from('notifications').insert([{
+        user_id: order.rfq.user_id,
+        message: `Your Purchase Order ${order.po_number} for RFQ ${order.rfq.rfq_number} has been acknowledged by the supplier.`,
+        link: `/rfq/${order.rfq_id}`,
+      }] as any);
+
+      toast.success("Purchase Order acknowledged");
+      fetchOrders();
+    } catch (error) {
+      console.error('Error acknowledging order:', error);
+      toast.error("Failed to acknowledge the Purchase Order");
+    } finally {
+      setUpdatingOrderId(null);
+    }
+  };
+
   const handleGenerateInvoice = (order: Order) => {
     const lines = [
       `INVOICE`,
@@ -120,7 +154,7 @@ const SupplierOrders = () => {
       `PO Number: ${order.po_number}`,
       `RFQ Number: ${order.rfq.rfq_number}`,
       `Quote Number: ${order.quote.quote_number}`,
-      `Order Date: ${new Date(order.created_at).toLocaleDateString()}`,
+      `PO Date: ${new Date(order.created_at).toLocaleDateString()}`,
       `Delivery Address: ${order.delivery_address}`,
       `Delivery Date: ${order.delivery_date ? new Date(order.delivery_date).toLocaleDateString() : 'Not set'}`,
       ``,
@@ -140,6 +174,8 @@ const SupplierOrders = () => {
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
+      case 'po submitted':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'po accepted':
         return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'order in progress':
@@ -168,9 +204,10 @@ const SupplierOrders = () => {
 
   const getStatusProgress = (status: string) => {
     switch (status.toLowerCase()) {
-      case 'po accepted': return 25;
-      case 'order in progress': return 50;
-      case 'out for delivery': return 75;
+      case 'po submitted': return 10;
+      case 'po accepted': return 30;
+      case 'order in progress': return 55;
+      case 'out for delivery': return 80;
       case 'delivered': return 100;
       default: return 0;
     }
@@ -232,6 +269,7 @@ const SupplierOrders = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="po submitted">PO Submitted</SelectItem>
                       <SelectItem value="po accepted">PO Accepted</SelectItem>
                       <SelectItem value="order in progress">In Progress</SelectItem>
                       <SelectItem value="out for delivery">Out for Delivery</SelectItem>
@@ -339,7 +377,7 @@ const SupplierOrders = () => {
                       <div className="flex items-center gap-2">
                         <Package className="w-4 h-4 text-muted-foreground" />
                         <div>
-                          <p className="text-sm text-muted-foreground">Order Date</p>
+                          <p className="text-sm text-muted-foreground">PO Date</p>
                           <p className="font-medium">
                             {new Date(order.created_at).toLocaleDateString()}
                           </p>
@@ -356,22 +394,32 @@ const SupplierOrders = () => {
                       <Button variant="outline" size="sm" onClick={() => navigate(`/rfq/${order.rfq_id}`)}>
                         View RFQ Details
                       </Button>
-                      <Select
-                        value={order.status}
-                        onValueChange={(status) => handleUpdateStatus(order.id, status)}
-                        disabled={updatingOrderId === order.id}
-                      >
-                        <SelectTrigger className="w-[180px] h-9">
-                          <SelectValue placeholder="Update Status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {ORDER_STATUSES.map((status) => (
-                            <SelectItem key={status} value={status}>
-                              {status}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      {order.status === 'PO Submitted' ? (
+                        <Button
+                          size="sm"
+                          onClick={() => handleAcknowledge(order)}
+                          disabled={updatingOrderId === order.id}
+                        >
+                          Acknowledge PO
+                        </Button>
+                      ) : (
+                        <Select
+                          value={order.status}
+                          onValueChange={(status) => handleUpdateStatus(order.id, status)}
+                          disabled={updatingOrderId === order.id}
+                        >
+                          <SelectTrigger className="w-[180px] h-9">
+                            <SelectValue placeholder="Update Status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ORDER_STATUSES.map((status) => (
+                              <SelectItem key={status} value={status}>
+                                {status}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
                       <Button variant="outline" size="sm" onClick={() => handleGenerateInvoice(order)}>
                         <FileDown className="w-4 h-4 mr-2" />
                         Generate Invoice

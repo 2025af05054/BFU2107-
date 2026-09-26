@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, CheckCircle, X, MessageSquare, Calendar, Loader2, Handshake, Printer, Trash2 } from "lucide-react";
+import { ArrowLeft, CheckCircle, X, MessageSquare, Calendar, Loader2, Handshake, Printer, Trash2, FileCheck, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -36,11 +36,14 @@ const QuoteDetailsPage = () => {
     quotes,
     rfqs,
     orders,
-    rejectQuote,
     cancelRFQ,
     isQuoteFullyAgreed,
     customerRespondToLineItem,
     supplierRespondToLineItem,
+    submitFinalQuotation,
+    rejectFinalQuotation,
+    submitPurchaseOrder,
+    acknowledgePO,
     loading,
   } = useSupabaseWorkflow();
   const { user } = useAuth();
@@ -203,12 +206,23 @@ const QuoteDetailsPage = () => {
     setCounterOpenFor(prev => ({ ...prev, [pq.id]: false }));
   };
 
-  const handleRejectQuote = async () => {
-    try {
-      await rejectQuote(quote!.id);
-    } catch {
-      toast.error('Failed to reject quote. Please try again.');
-    }
+  const handleSubmitQuotation = async () => {
+    await submitFinalQuotation(quote!.id);
+  };
+
+  const handleRejectQuotation = async () => {
+    if (!window.confirm('Reject this quotation and reopen negotiation on every product?')) return;
+    await rejectFinalQuotation(quote!.id);
+  };
+
+  const handleSubmitPO = async () => {
+    if (!window.confirm('Submit this Purchase Order to the supplier?')) return;
+    await submitPurchaseOrder(quote!.id);
+  };
+
+  const handleAcknowledgePO = async () => {
+    if (!order) return;
+    await acknowledgePO(order.id);
   };
 
   // Whether "it's your turn" to respond to a given line item: you can act
@@ -234,7 +248,7 @@ const QuoteDetailsPage = () => {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
-              {quote.status === 'Accepted' ? 'Purchase Order' : 'Quote'} {quote.quote_number || quote.id}
+              {quote.status === 'Accepted' ? 'Purchase Order' : quote.status === 'Finalized' ? 'Final Quotation' : 'Quote'} {quote.quote_number || quote.id}
             </h1>
             <p className="text-muted-foreground">
               For RFQ {rfq.rfq_number} • Created on {new Date(quote.created_at).toLocaleDateString()}
@@ -283,9 +297,9 @@ const QuoteDetailsPage = () => {
             <CardHeader>
               <CardTitle>Product Quotation</CardTitle>
               <CardDescription>
-                {quote.status === 'Accepted'
-                  ? 'Final agreed pricing for each product'
-                  : 'Review and negotiate pricing per product. Each item can be accepted, countered, or rejected independently.'}
+                {quote.status === 'Accepted' || quote.status === 'Finalized'
+                  ? 'Locked pricing for each product — negotiation is closed'
+                  : 'Review and negotiate pricing per product. Each item can be accepted, countered, or removed independently.'}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -361,8 +375,10 @@ const QuoteDetailsPage = () => {
                         </div>
                       )}
 
-                      {/* Negotiation controls */}
-                      {productQuote.status !== 'Accepted' && productQuote.status !== 'Rejected' && !rfqIsClosed && (
+                      {/* Negotiation controls -- only while the quote is still
+                          Pending. Once the supplier submits the final
+                          quotation, pricing is locked and these disappear. */}
+                      {quote.status === 'Pending' && productQuote.status !== 'Accepted' && productQuote.status !== 'Rejected' && !rfqIsClosed && (
                         <div className="print:hidden space-y-3 pt-2">
                           {!myTurn ? (
                             <p className="text-sm text-muted-foreground italic">
@@ -496,36 +512,99 @@ const QuoteDetailsPage = () => {
                 </div>
               )}
 
+              {/* Phase 1: negotiating. Once every item is agreed, the
+                  supplier (not an automatic process) submits the formal
+                  quotation. */}
               {quote.status === 'Pending' && !isExpired && !rfqIsClosed && (
                 <div className="space-y-3 pt-4 print:hidden">
                   {fullyAgreed ? (
-                    <p className="text-sm text-green-700 bg-green-50 rounded-md p-2 text-center">
-                      All products agreed — generating the Purchase Order...
-                    </p>
+                    isMine ? (
+                      <>
+                        <p className="text-sm text-green-700 bg-green-50 rounded-md p-2 text-center">
+                          All products agreed! Submit the formal quotation to the customer.
+                        </p>
+                        <Button variant="hero" className="w-full" onClick={handleSubmitQuotation}>
+                          <FileCheck className="w-4 h-4 mr-2" />
+                          Submit Final Quotation
+                        </Button>
+                      </>
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center">
+                        All products agreed — waiting for the supplier to submit the final quotation.
+                      </p>
+                    )
                   ) : (
                     <p className="text-sm text-muted-foreground text-center">
-                      Respond to each product above. The moment every item is accepted by both sides, the Purchase Order is created automatically.
+                      Respond to each product above. Once every item is accepted by both sides, the supplier can submit the final quotation.
                     </p>
                   )}
-                  <Button variant="outline" className="w-full" onClick={handleRejectQuote}>
-                    <X className="w-4 h-4 mr-2" />
-                    Reject Entire Quote
-                  </Button>
                 </div>
               )}
 
-              {quote.status === 'Accepted' && (
-                <div className="pt-4 space-y-3">
-                  <div className="flex items-center justify-center p-3 bg-green-50 rounded-lg">
-                    <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
-                    <span className="text-green-800 font-medium">Purchase Order Confirmed</span>
-                  </div>
-                  {order && (
-                    <div className="text-sm text-muted-foreground text-center space-y-1">
-                      <p>PO Number: <span className="font-medium text-foreground">{order.po_number}</span></p>
-                      <p>Order Number: <span className="font-medium text-foreground">{order.order_number}</span></p>
-                    </div>
+              {/* Phase 2: supplier finalized the quotation. Customer decides:
+                  raise the PO, or reject and reopen negotiation. */}
+              {quote.status === 'Finalized' && !rfqIsClosed && (
+                <div className="space-y-3 pt-4 print:hidden">
+                  {isMine ? (
+                    <p className="text-sm text-muted-foreground text-center">
+                      Quotation sent — waiting for the customer to submit a Purchase Order or respond.
+                    </p>
+                  ) : (
+                    <>
+                      <p className="text-sm text-blue-700 bg-blue-50 rounded-md p-2 text-center">
+                        The supplier has submitted their final quotation. Review it above.
+                      </p>
+                      <Button variant="hero" className="w-full" onClick={handleSubmitPO}>
+                        <FileCheck className="w-4 h-4 mr-2" />
+                        Submit Purchase Order
+                      </Button>
+                      <Button variant="outline" className="w-full" onClick={handleRejectQuotation}>
+                        <X className="w-4 h-4 mr-2" />
+                        Reject Quotation
+                      </Button>
+                    </>
                   )}
+                </div>
+              )}
+
+              {/* Phase 3: PO submitted, awaiting supplier acknowledgement. */}
+              {quote.status === 'Accepted' && order && (
+                <div className="pt-4 space-y-3">
+                  <div className={`flex items-center justify-center p-3 rounded-lg ${order.status === 'PO Submitted' ? 'bg-blue-50' : 'bg-green-50'}`}>
+                    {order.status === 'PO Submitted' ? (
+                      <>
+                        <Clock className="w-5 h-5 text-blue-600 mr-2" />
+                        <span className="text-blue-800 font-medium">PO Submitted — Awaiting Acknowledgement</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
+                        <span className="text-green-800 font-medium">Purchase Order Acknowledged</span>
+                      </>
+                    )}
+                  </div>
+                  <div className="text-sm text-muted-foreground text-center space-y-1">
+                    <p>PO Number: <span className="font-medium text-foreground">{order.po_number}</span></p>
+                    <p>PO Date: <span className="font-medium text-foreground">{new Date(order.created_at).toLocaleDateString()}</span></p>
+                    <p>Order Number: <span className="font-medium text-foreground">{order.order_number}</span></p>
+                    {order.acknowledged_at && (
+                      <p>Acknowledged: <span className="font-medium text-foreground">{new Date(order.acknowledged_at).toLocaleDateString()}</span></p>
+                    )}
+                  </div>
+
+                  {order.status === 'PO Submitted' && (
+                    isMine ? (
+                      <Button variant="hero" className="w-full print:hidden" onClick={handleAcknowledgePO}>
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Acknowledge PO
+                      </Button>
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center">
+                        Waiting for the supplier to acknowledge this PO.
+                      </p>
+                    )
+                  )}
+
                   <p className="text-sm text-muted-foreground text-center">
                     This copy is available to both the customer and the supplier from their dashboards.
                   </p>

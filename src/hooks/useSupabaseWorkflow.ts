@@ -39,7 +39,11 @@ export interface DatabaseQuote {
   supplier_name: string;
   total_amount: number;
   valid_until: string;
-  status: 'Pending' | 'Accepted' | 'Rejected';
+  // Pending: line-item negotiation ongoing. Finalized: supplier has
+  // submitted the formal quotation and it's locked, awaiting the customer's
+  // PO decision. Accepted: customer submitted the PO. Rejected: legacy
+  // whole-quote rejection (no longer created by new UI flows).
+  status: 'Pending' | 'Finalized' | 'Accepted' | 'Rejected';
   created_at: string;
   product_quotes?: DatabaseProductQuote[];
 }
@@ -75,11 +79,16 @@ export interface DatabaseOrder {
   quote_id: string;
   order_number: string;
   po_number: string;
-  status: 'PO Accepted' | 'Order in Progress' | 'Out for Delivery' | 'Delivered';
+  // PO Submitted: customer has raised the PO, supplier hasn't confirmed it
+  // yet. PO Accepted: supplier has acknowledged it (see acknowledged_at).
+  status: 'PO Submitted' | 'PO Accepted' | 'Order in Progress' | 'Out for Delivery' | 'Delivered';
   payment_status: 'Not Indicated' | 'Partial' | 'Done';
   delivery_date?: string;
   delivery_address: string;
+  // The PO date, for display -- this is set the moment the customer submits
+  // the PO (created_at works too, but this name reads clearly in the UI).
   created_at: string;
+  acknowledged_at?: string | null;
 }
 
 export interface CreateRFQData {
@@ -306,69 +315,11 @@ export const useSupabaseWorkflow = () => {
     };
   };
 
-  // If every active line item on a quote is now Accepted, immediately
-  // finalize it into a Purchase Order — no manual confirmation step. This
-  // is the moment the PO copy becomes available to both the customer and
-  // the supplier.
-  const finalizeQuoteIfComplete = async (quoteId: string) => {
-    try {
-      const { data: quoteRow, error: quoteFetchError } = await supabase
-        .from('quotes')
-        .select('id, status, rfq_id, supplier_id')
-        .eq('id', quoteId)
-        .single();
-      if (quoteFetchError || !quoteRow || quoteRow.status === 'Accepted') return;
-
-      const { data: items, error: itemsError } = await supabase
-        .from('product_quotes')
-        .select('status')
-        .eq('quote_id', quoteId);
-      if (itemsError || !items) return;
-
-      const active = items.filter(i => i.status !== 'Rejected');
-      if (active.length === 0 || !active.every(i => i.status === 'Accepted')) return;
-
-      const { error: quoteUpdateError } = await supabase
-        .from('quotes')
-        .update({ status: 'Accepted' })
-        .eq('id', quoteId);
-      if (quoteUpdateError) throw quoteUpdateError;
-
-      const { error: orderError } = await supabase
-        .from('orders')
-        .insert([{
-          rfq_id: quoteRow.rfq_id,
-          quote_id: quoteId,
-          po_number: `PO${Date.now().toString().slice(-6)}`,
-          delivery_address: 'Default delivery address',
-          delivery_date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        }] as any);
-      if (orderError) throw orderError;
-
-      const { error: rfqUpdateError } = await supabase
-        .from('rfqs')
-        .update({ status: 'Order_Placed' })
-        .eq('id', quoteRow.rfq_id);
-      if (rfqUpdateError) throw rfqUpdateError;
-
-      toast.success('All items agreed — Purchase Order created for both sides!');
-
-      // Let both sides know, since only one of them triggered this.
-      const { data: rfqRow } = await supabase
-        .from('rfqs')
-        .select('rfq_number, user_id')
-        .eq('id', quoteRow.rfq_id)
-        .single();
-      if (rfqRow?.user_id) await notifyUser(rfqRow.user_id, `RFQ ${rfqRow.rfq_number} is fully agreed — Purchase Order created!`, `/quote/${quoteId}`);
-      if (quoteRow.supplier_id) await notifyUser(quoteRow.supplier_id, `RFQ ${rfqRow?.rfq_number || ''} is fully agreed — Purchase Order created!`, `/quote/${quoteId}`);
-
-      await fetchRFQs();
-      await fetchQuotes();
-      await fetchOrders();
-    } catch (error) {
-      console.error('Error finalizing quote:', error);
-    }
-  };
+  // Once every active line item is Accepted, the negotiation is done -- but
+  // nothing is sent anywhere automatically. The supplier still has to
+  // explicitly submit the formal quotation (submitFinalQuotation below).
+  // isQuoteFullyAgreed (above) is what the UI checks to decide whether to
+  // show that button.
 
   // Customer responds to the supplier's current price for one product line:
   // accept it as-is, counter with a different price, or remove it from the
@@ -421,7 +372,6 @@ export const useSupabaseWorkflow = () => {
       }
 
       await fetchQuotes();
-      if (ctx?.quoteId) await finalizeQuoteIfComplete(ctx.quoteId);
     } catch (error) {
       console.error('Error responding to product quote:', error);
       toast.error('Failed to save your response');
@@ -490,40 +440,184 @@ export const useSupabaseWorkflow = () => {
       }
 
       await fetchQuotes();
-      if (ctx?.quoteId) await finalizeQuoteIfComplete(ctx.quoteId);
     } catch (error) {
       console.error('Error responding to product quote:', error);
       toast.error('Failed to save your response');
     }
   };
 
-  // Manual fallback kept for compatibility -- the negotiation UI now calls
-  // finalizeQuoteIfComplete automatically after every response instead of
-  // requiring an extra confirmation click.
-  const acceptQuote = async (quoteId: string) => {
-    const quote = quotes.find(q => q.id === quoteId);
-    if (!quote) return;
-    if (!isQuoteFullyAgreed(quote)) {
-      toast.error('All products must be agreed on before the PO can be generated');
-      return;
-    }
-    await finalizeQuoteIfComplete(quoteId);
-  };
-
-  const rejectQuote = async (quoteId: string) => {
+  // Step 1 of the settlement handoff: the supplier explicitly submits the
+  // formal quotation once every line item is agreed. This locks the quote
+  // (no more per-line negotiation) and hands the decision to the customer:
+  // submit a PO against it, or reject it and reopen negotiation.
+  const submitFinalQuotation = async (quoteId: string) => {
     try {
+      const quote = quotes.find(q => q.id === quoteId);
+      if (!quote) return;
+      if (!isQuoteFullyAgreed(quote)) {
+        toast.error('All products must be agreed on before you can submit the quotation');
+        return;
+      }
+
       const { error } = await supabase
         .from('quotes')
-        .update({ status: 'Rejected' })
+        .update({ status: 'Finalized' })
         .eq('id', quoteId);
-
       if (error) throw error;
 
-      toast.success('Quote rejected. You can request a new quote or negotiate terms.');
+      const { data: rfqRow } = await supabase
+        .from('rfqs')
+        .select('rfq_number, user_id')
+        .eq('id', quote.rfq_id)
+        .single();
+
+      toast.success('Final quotation submitted to the customer');
+      if (rfqRow?.user_id) {
+        await notifyUser(rfqRow.user_id, `Supplier submitted the final quotation for RFQ ${rfqRow.rfq_number}.`, `/quote/${quoteId}`);
+      }
+
       await fetchQuotes();
     } catch (error) {
-      console.error('Error rejecting quote:', error);
-      toast.error('Failed to reject quote');
+      console.error('Error submitting final quotation:', error);
+      toast.error('Failed to submit the final quotation');
+    }
+  };
+
+  // Customer rejects the finalized quotation instead of raising a PO. This
+  // reopens per-line negotiation rather than killing the whole RFQ: every
+  // active line item goes back to 'Pending' at the supplier's last quoted
+  // price, waiting on the customer to respond again.
+  const rejectFinalQuotation = async (quoteId: string) => {
+    try {
+      const quote = quotes.find(q => q.id === quoteId);
+      if (!quote) return;
+
+      const { error: itemsError } = await supabase
+        .from('product_quotes')
+        .update({ status: 'Pending', last_offer_by: 'supplier' })
+        .eq('quote_id', quoteId)
+        .neq('status', 'Rejected');
+      if (itemsError) throw itemsError;
+
+      const { error: quoteError } = await supabase
+        .from('quotes')
+        .update({ status: 'Pending' })
+        .eq('id', quoteId);
+      if (quoteError) throw quoteError;
+
+      const { data: rfqRow } = await supabase
+        .from('rfqs')
+        .select('rfq_number')
+        .eq('id', quote.rfq_id)
+        .single();
+
+      toast.success('Quotation rejected — negotiation reopened');
+      if (quote.supplier_id) {
+        await notifyUser(quote.supplier_id, `Customer rejected the quotation and reopened negotiation on RFQ ${rfqRow?.rfq_number || ''}.`, `/quote/${quoteId}`);
+      }
+
+      await fetchQuotes();
+    } catch (error) {
+      console.error('Error rejecting final quotation:', error);
+      toast.error('Failed to reject the quotation');
+    }
+  };
+
+  // Step 2: the customer raises the actual Purchase Order against a
+  // finalized quotation. This is what creates the `orders` row -- the order
+  // starts as 'PO Submitted' since the supplier hasn't acknowledged it yet.
+  const submitPurchaseOrder = async (quoteId: string) => {
+    try {
+      const quote = quotes.find(q => q.id === quoteId);
+      if (!quote) return;
+      if (quote.status !== 'Finalized') {
+        toast.error('Wait for the supplier to submit the final quotation first');
+        return;
+      }
+
+      const { error: quoteError } = await supabase
+        .from('quotes')
+        .update({ status: 'Accepted' })
+        .eq('id', quoteId);
+      if (quoteError) throw quoteError;
+
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .insert([{
+          rfq_id: quote.rfq_id,
+          quote_id: quoteId,
+          po_number: `PO${Date.now().toString().slice(-6)}`,
+          delivery_address: 'Default delivery address',
+          delivery_date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        }] as any)
+        .select()
+        .single();
+      if (orderError) throw orderError;
+
+      const { error: rfqError } = await supabase
+        .from('rfqs')
+        .update({ status: 'Order_Placed' })
+        .eq('id', quote.rfq_id);
+      if (rfqError) throw rfqError;
+
+      const { data: rfqRow } = await supabase
+        .from('rfqs')
+        .select('rfq_number')
+        .eq('id', quote.rfq_id)
+        .single();
+
+      toast.success('Purchase Order submitted to the supplier');
+      if (quote.supplier_id) {
+        await notifyUser(
+          quote.supplier_id,
+          `New Purchase Order (${order?.po_number || ''}) received for RFQ ${rfqRow?.rfq_number || ''}.`,
+          `/quote/${quoteId}`
+        );
+      }
+
+      await fetchRFQs();
+      await fetchQuotes();
+      await fetchOrders();
+    } catch (error) {
+      console.error('Error submitting purchase order:', error);
+      toast.error('Failed to submit the Purchase Order');
+    }
+  };
+
+  // Step 3: the supplier acknowledges the PO. This is the explicit
+  // confirmation step real procurement platforms have between "customer
+  // raised a PO" and "order is actually underway" -- fulfillment status
+  // (Order in Progress, etc.) only makes sense to move once this happens.
+  const acknowledgePO = async (orderId: string) => {
+    try {
+      const order = orders.find(o => o.id === orderId);
+      if (!order) return;
+      if (order.status !== 'PO Submitted') {
+        toast.error('This PO has already been acknowledged');
+        return;
+      }
+
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: 'PO Accepted', acknowledged_at: new Date().toISOString() })
+        .eq('id', orderId);
+      if (error) throw error;
+
+      const { data: rfqRow } = await supabase
+        .from('rfqs')
+        .select('rfq_number, user_id')
+        .eq('id', order.rfq_id)
+        .single();
+
+      toast.success('Purchase Order acknowledged');
+      if (rfqRow?.user_id) {
+        await notifyUser(rfqRow.user_id, `Your Purchase Order ${order.po_number} for RFQ ${rfqRow.rfq_number} has been acknowledged by the supplier.`, `/quote/${order.quote_id}`);
+      }
+
+      await fetchOrders();
+    } catch (error) {
+      console.error('Error acknowledging purchase order:', error);
+      toast.error('Failed to acknowledge the Purchase Order');
     }
   };
 
@@ -634,12 +728,14 @@ export const useSupabaseWorkflow = () => {
     orders,
     loading,
     submitRFQ,
-    acceptQuote,
-    rejectQuote,
     cancelRFQ,
     isQuoteFullyAgreed,
     customerRespondToLineItem,
     supplierRespondToLineItem,
+    submitFinalQuotation,
+    rejectFinalQuotation,
+    submitPurchaseOrder,
+    acknowledgePO,
     updateOrderStatus,
     updatePaymentStatus,
     refresh: () => {
