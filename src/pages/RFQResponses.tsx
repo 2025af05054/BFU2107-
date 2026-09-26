@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { FileText, DollarSign, Calendar, Package } from "lucide-react";
+import { formatDateTime } from "@/lib/datetime";
 
 interface Quote {
   id: string;
@@ -147,7 +148,7 @@ const RFQResponses = () => {
                         <span className="text-sm">
                           <span className="text-muted-foreground">Amount: </span>
                           <span className="font-medium">
-                            ${quote.total_amount?.toLocaleString() || 'N/A'}
+                            ₹{quote.total_amount?.toLocaleString() || 'N/A'}
                           </span>
                         </span>
                       </div>
@@ -165,7 +166,7 @@ const RFQResponses = () => {
                         <span className="text-sm">
                           <span className="text-muted-foreground">Submitted: </span>
                           <span className="font-medium">
-                            {new Date(quote.created_at).toLocaleDateString()}
+                            {formatDateTime(quote.created_at)}
                           </span>
                         </span>
                       </div>

@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
 import { ChatDialog } from "@/components/ChatDialog";
 import { toast } from "sonner";
+import { formatDateTime } from "@/lib/datetime";
 
 const lineStatusColor = (status: string) => {
   switch (status) {
@@ -43,6 +44,7 @@ const QuoteDetailsPage = () => {
     submitFinalQuotation,
     rejectFinalQuotation,
     submitPurchaseOrder,
+    retryOrderCreation,
     acknowledgePO,
     loading,
   } = useSupabaseWorkflow();
@@ -251,7 +253,7 @@ const QuoteDetailsPage = () => {
               {quote.status === 'Accepted' ? 'Purchase Order' : quote.status === 'Finalized' ? 'Final Quotation' : 'Quote'} {quote.quote_number || quote.id}
             </h1>
             <p className="text-muted-foreground">
-              For RFQ {rfq.rfq_number} • Created on {new Date(quote.created_at).toLocaleDateString()}
+              For RFQ {rfq.rfq_number} • Created on {formatDateTime(quote.created_at)}
             </p>
           </div>
           <div className="flex items-center gap-3 print:hidden">
@@ -467,7 +469,7 @@ const QuoteDetailsPage = () => {
                   <h4 className="font-medium text-foreground mb-3">RFQ Summary</h4>
                   <div className="space-y-2 text-sm">
                     <div><span className="text-muted-foreground">RFQ ID:</span> {rfq.rfq_number}</div>
-                    <div><span className="text-muted-foreground">Created:</span> {new Date(rfq.created_at).toLocaleDateString()}</div>
+                    <div><span className="text-muted-foreground">Created:</span> {formatDateTime(rfq.created_at)}</div>
                     <div><span className="text-muted-foreground">Products:</span> {rfq.products?.length || 0} items</div>
                   </div>
                 </div>
@@ -567,6 +569,22 @@ const QuoteDetailsPage = () => {
                 </div>
               )}
 
+              {/* Recovery: a quote can end up 'Accepted' with no order behind
+                  it if PO creation failed partway through. Offer a retry
+                  instead of rendering nothing. */}
+              {quote.status === 'Accepted' && !order && (
+                <div className="pt-4 space-y-3">
+                  <p className="text-sm text-red-700 bg-red-50 rounded-md p-2 text-center">
+                    This Purchase Order didn't finish being created.
+                  </p>
+                  {!isMine && (
+                    <Button variant="hero" className="w-full" onClick={() => retryOrderCreation(quote!.id)}>
+                      Retry Purchase Order Creation
+                    </Button>
+                  )}
+                </div>
+              )}
+
               {/* Phase 3: PO submitted, awaiting supplier acknowledgement. */}
               {quote.status === 'Accepted' && order && (
                 <div className="pt-4 space-y-3">
@@ -585,10 +603,10 @@ const QuoteDetailsPage = () => {
                   </div>
                   <div className="text-sm text-muted-foreground text-center space-y-1">
                     <p>PO Number: <span className="font-medium text-foreground">{order.po_number}</span></p>
-                    <p>PO Date: <span className="font-medium text-foreground">{new Date(order.created_at).toLocaleDateString()}</span></p>
+                    <p>PO Date: <span className="font-medium text-foreground">{formatDateTime(order.created_at)}</span></p>
                     <p>Order Number: <span className="font-medium text-foreground">{order.order_number}</span></p>
                     {order.acknowledged_at && (
-                      <p>Acknowledged: <span className="font-medium text-foreground">{new Date(order.acknowledged_at).toLocaleDateString()}</span></p>
+                      <p>Acknowledged: <span className="font-medium text-foreground">{formatDateTime(order.acknowledged_at)}</span></p>
                     )}
                   </div>
 

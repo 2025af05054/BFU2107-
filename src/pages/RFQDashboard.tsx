@@ -11,6 +11,7 @@ import { Link } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { ChatDialog } from "@/components/ChatDialog";
 import { useRFQStatusUpdates } from "@/hooks/useRFQStatusUpdates";
+import { formatDateTime } from "@/lib/datetime";
 
 const RFQDashboard = () => {
   const { rfqs, quotes, loading, refresh } = useSupabaseWorkflow();
@@ -168,7 +169,7 @@ const RFQDashboard = () => {
                       
                       <div className="grid md:grid-cols-3 gap-4 text-sm text-muted-foreground">
                         <div>
-                          <span className="font-medium">Created:</span> {new Date(rfq.created_at).toLocaleDateString()}
+                          <span className="font-medium">Created:</span> {formatDateTime(rfq.created_at)}
                         </div>
                         <div>
                           <span className="font-medium">Products:</span> {rfq.products?.length || 0} item(s)

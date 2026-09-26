@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { FileText, Package, Clock, CheckCircle } from "lucide-react";
+import { formatDateTime } from "@/lib/datetime";
 
 interface RFQSummary {
   id: string;
@@ -183,7 +184,7 @@ const SupplierDashboard = () => {
                           {rfq.product_count} products
                         </span>
                         <span>
-                          Created {new Date(rfq.created_at).toLocaleDateString()}
+                          Created {formatDateTime(rfq.created_at)}
                         </span>
                       </div>
                     </div>

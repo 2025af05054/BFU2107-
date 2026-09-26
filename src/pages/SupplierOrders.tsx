@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Truck, Package, Calendar, IndianRupee, MessageCircle, Search, Filter, FileDown } from "lucide-react";
 import { ChatDialog } from "@/components/ChatDialog";
 import { toast } from "sonner";
+import { formatDateTime } from "@/lib/datetime";
 
 // Statuses the supplier can move an order to manually once it's been
 // acknowledged. 'PO Submitted' -> 'PO Accepted' happens via the dedicated
@@ -154,7 +155,7 @@ const SupplierOrders = () => {
       `PO Number: ${order.po_number}`,
       `RFQ Number: ${order.rfq.rfq_number}`,
       `Quote Number: ${order.quote.quote_number}`,
-      `PO Date: ${new Date(order.created_at).toLocaleDateString()}`,
+      `PO Date: ${formatDateTime(order.created_at)}`,
       `Delivery Address: ${order.delivery_address}`,
       `Delivery Date: ${order.delivery_date ? new Date(order.delivery_date).toLocaleDateString() : 'Not set'}`,
       ``,
@@ -379,7 +380,7 @@ const SupplierOrders = () => {
                         <div>
                           <p className="text-sm text-muted-foreground">PO Date</p>
                           <p className="font-medium">
-                            {new Date(order.created_at).toLocaleDateString()}
+                            {formatDateTime(order.created_at)}
                           </p>
                         </div>
                       </div>

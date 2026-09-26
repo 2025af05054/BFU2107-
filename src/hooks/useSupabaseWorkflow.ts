@@ -459,9 +459,22 @@ export const useSupabaseWorkflow = () => {
         return;
       }
 
+      // The quote's total_amount was set once at initial submission and
+      // never touched again -- negotiated counter-prices and removed
+      // products never adjusted it. Recompute it now, from only the
+      // products still active in the deal, at their final agreed price,
+      // since this is the number that becomes the actual PO amount.
+      const { data: items } = await supabase
+        .from('product_quotes')
+        .select('unit_price, status, products ( quantity )')
+        .eq('quote_id', quoteId);
+      const finalTotal = (items || [])
+        .filter((i: any) => i.status !== 'Rejected')
+        .reduce((sum: number, i: any) => sum + Number(i.unit_price) * (i.products?.quantity || 1), 0);
+
       const { error } = await supabase
         .from('quotes')
-        .update({ status: 'Finalized' })
+        .update({ status: 'Finalized', total_amount: finalTotal })
         .eq('id', quoteId);
       if (error) throw error;
 
@@ -535,12 +548,10 @@ export const useSupabaseWorkflow = () => {
         return;
       }
 
-      const { error: quoteError } = await supabase
-        .from('quotes')
-        .update({ status: 'Accepted' })
-        .eq('id', quoteId);
-      if (quoteError) throw quoteError;
-
+      // Create the order FIRST, and only mark the quote 'Accepted' once that
+      // succeeds. Doing it the other way around risks an orphaned quote --
+      // 'Accepted' with no order behind it -- if the order insert ever
+      // fails, since there's nothing to roll the status change back.
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert([{
@@ -553,6 +564,12 @@ export const useSupabaseWorkflow = () => {
         .select()
         .single();
       if (orderError) throw orderError;
+
+      const { error: quoteError } = await supabase
+        .from('quotes')
+        .update({ status: 'Accepted' })
+        .eq('id', quoteId);
+      if (quoteError) throw quoteError;
 
       const { error: rfqError } = await supabase
         .from('rfqs')
@@ -581,6 +598,36 @@ export const useSupabaseWorkflow = () => {
     } catch (error) {
       console.error('Error submitting purchase order:', error);
       toast.error('Failed to submit the Purchase Order');
+    }
+  };
+
+  // Recovery path for quotes that got stuck 'Accepted' with no order behind
+  // them (possible before submitPurchaseOrder created the order before
+  // flipping the status -- see the reordering there). Lets the customer
+  // retry just the order-creation half instead of being stuck on a quote
+  // with no way forward.
+  const retryOrderCreation = async (quoteId: string) => {
+    try {
+      const quote = quotes.find(q => q.id === quoteId);
+      if (!quote || quote.status !== 'Accepted') return;
+      if (orders.some(o => o.quote_id === quoteId)) return;
+
+      const { error: orderError } = await supabase
+        .from('orders')
+        .insert([{
+          rfq_id: quote.rfq_id,
+          quote_id: quoteId,
+          po_number: `PO${Date.now().toString().slice(-6)}`,
+          delivery_address: 'Default delivery address',
+          delivery_date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        }] as any);
+      if (orderError) throw orderError;
+
+      toast.success('Purchase Order created');
+      await fetchOrders();
+    } catch (error) {
+      console.error('Error retrying order creation:', error);
+      toast.error('Failed to create the Purchase Order');
     }
   };
 
@@ -735,6 +782,7 @@ export const useSupabaseWorkflow = () => {
     submitFinalQuotation,
     rejectFinalQuotation,
     submitPurchaseOrder,
+    retryOrderCreation,
     acknowledgePO,
     updateOrderStatus,
     updatePaymentStatus,
