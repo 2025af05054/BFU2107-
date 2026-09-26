@@ -496,27 +496,27 @@ export const useSupabaseWorkflow = () => {
     }
   };
 
-  // Customer rejects the finalized quotation instead of raising a PO. This
-  // reopens per-line negotiation rather than killing the whole RFQ: every
-  // active line item goes back to 'Pending' at the supplier's last quoted
-  // price, waiting on the customer to respond again.
+  // Customer rejects the finalized quotation. This is terminal -- unlike
+  // removing a single product mid-negotiation, rejecting the final
+  // quotation cannot be reopened or edited. It ends the deal: the quote is
+  // marked Rejected and the RFQ itself is cancelled, matching how "Cancel
+  // RFQ" already closes things out with no way back.
   const rejectFinalQuotation = async (quoteId: string) => {
     try {
       const quote = quotes.find(q => q.id === quoteId);
       if (!quote) return;
 
-      const { error: itemsError } = await supabase
-        .from('product_quotes')
-        .update({ status: 'Pending', last_offer_by: 'supplier' })
-        .eq('quote_id', quoteId)
-        .neq('status', 'Rejected');
-      if (itemsError) throw itemsError;
-
       const { error: quoteError } = await supabase
         .from('quotes')
-        .update({ status: 'Pending' })
+        .update({ status: 'Rejected' })
         .eq('id', quoteId);
       if (quoteError) throw quoteError;
+
+      const { error: rfqUpdateError } = await supabase
+        .from('rfqs')
+        .update({ status: 'Cancelled', cancelled_by: 'customer' })
+        .eq('id', quote.rfq_id);
+      if (rfqUpdateError) throw rfqUpdateError;
 
       const { data: rfqRow } = await supabase
         .from('rfqs')
@@ -524,11 +524,12 @@ export const useSupabaseWorkflow = () => {
         .eq('id', quote.rfq_id)
         .single();
 
-      toast.success('Quotation rejected — negotiation reopened');
+      toast.success('Quotation rejected — RFQ closed');
       if (quote.supplier_id) {
-        await notifyUser(quote.supplier_id, `Customer rejected the quotation and reopened negotiation on RFQ ${rfqRow?.rfq_number || ''}.`, `/quote/${quoteId}`);
+        await notifyUser(quote.supplier_id, `Customer rejected the final quotation for RFQ ${rfqRow?.rfq_number || ''}. The RFQ is now closed.`, `/quote/${quoteId}`);
       }
 
+      await fetchRFQs();
       await fetchQuotes();
     } catch (error) {
       console.error('Error rejecting final quotation:', error);

@@ -213,7 +213,7 @@ const QuoteDetailsPage = () => {
   };
 
   const handleRejectQuotation = async () => {
-    if (!window.confirm('Reject this quotation and reopen negotiation on every product?')) return;
+    if (!window.confirm('Reject this quotation? This closes the RFQ permanently — it cannot be reopened or edited afterward.')) return;
     await rejectFinalQuotation(quote!.id);
   };
 
@@ -488,15 +488,6 @@ const QuoteDetailsPage = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Subtotal:</span>
-                  <span className="font-medium">₹{Math.round(quote.total_amount / 1.15).toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Platform Fee (15%):</span>
-                  <span className="font-medium">₹{Math.round(quote.total_amount - (quote.total_amount / 1.15)).toLocaleString()}</span>
-                </div>
-                <Separator />
                 <div className="flex justify-between text-lg">
                   <span className="font-medium">Total Amount:</span>
                   <span className="font-bold">₹{quote.total_amount.toLocaleString()}</span>
