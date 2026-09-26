@@ -311,7 +311,14 @@ const QuoteDetailsPage = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {quote.product_quotes?.map((productQuote, index) => {
+                {(quote.product_quotes || [])
+                  // Once the quotation is finalized (or turned into a PO),
+                  // removed products no longer belong on the document --
+                  // they were never part of the deal. Still shown during
+                  // live negotiation, where seeing what got dropped is
+                  // useful context.
+                  .filter(pq => quote.status === 'Pending' || pq.status !== 'Rejected')
+                  .map((productQuote, index) => {
                   const product = rfq.products?.find(p => p.id === productQuote.product_id);
                   if (!product) return null;
                   const myTurn = isMyTurn(productQuote);
