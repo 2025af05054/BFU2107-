@@ -135,8 +135,6 @@ const CreateQuotePage = () => {
 
       if (productQuotesError) throw productQuotesError;
 
-      await supabase.from("rfqs").update({ status: "Quoted" }).eq("id", rfq.id);
-
       toast.success("Quote submitted successfully!");
       navigate("/rfq-responses");
     } catch (error) {

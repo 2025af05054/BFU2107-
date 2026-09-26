@@ -175,28 +175,37 @@ export type Database = {
       product_quotes: {
         Row: {
           created_at: string
+          customer_offer_price: number | null
           id: string
+          last_offer_by: string
           lead_time: number
           product_id: string
           quote_id: string
+          status: string
           terms: string | null
           unit_price: number
         }
         Insert: {
           created_at?: string
+          customer_offer_price?: number | null
           id?: string
+          last_offer_by?: string
           lead_time: number
           product_id: string
           quote_id: string
+          status?: string
           terms?: string | null
           unit_price: number
         }
         Update: {
           created_at?: string
+          customer_offer_price?: number | null
           id?: string
+          last_offer_by?: string
           lead_time?: number
           product_id?: string
           quote_id?: string
+          status?: string
           terms?: string | null
           unit_price?: number
         }
@@ -213,6 +222,44 @@ export type Database = {
             columns: ["quote_id"]
             isOneToOne: false
             referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_quote_offers: {
+        Row: {
+          actor: string
+          created_at: string
+          id: string
+          lead_time: number | null
+          message: string | null
+          product_quote_id: string
+          unit_price: number
+        }
+        Insert: {
+          actor: string
+          created_at?: string
+          id?: string
+          lead_time?: number | null
+          message?: string | null
+          product_quote_id: string
+          unit_price: number
+        }
+        Update: {
+          actor?: string
+          created_at?: string
+          id?: string
+          lead_time?: number | null
+          message?: string | null
+          product_quote_id?: string
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_quote_offers_product_quote_id_fkey"
+            columns: ["product_quote_id"]
+            isOneToOne: false
+            referencedRelation: "product_quotes"
             referencedColumns: ["id"]
           },
         ]
@@ -358,6 +405,7 @@ export type Database = {
       }
       rfqs: {
         Row: {
+          cancelled_by: string | null
           created_at: string
           customer_id: string | null
           id: string
@@ -368,6 +416,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          cancelled_by?: string | null
           created_at?: string
           customer_id?: string | null
           id?: string
@@ -378,6 +427,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          cancelled_by?: string | null
           created_at?: string
           customer_id?: string | null
           id?: string

@@ -41,11 +41,14 @@ const RFQDashboard = () => {
     return matchesStatus && matchesSearch;
   });
 
+  // 'Created' means the RFQ is still being negotiated line-by-line, so it
+  // reads yellow (in-progress); once a PO has been raised/placed the deal
+  // is settled, so it flips to green.
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Created': return 'bg-blue-100 text-blue-800';
-      case 'Order_Placed': return 'bg-orange-100 text-orange-800';
-      case 'PO_Raised': return 'bg-purple-100 text-purple-800';
+      case 'Created': return 'bg-yellow-100 text-yellow-800';
+      case 'Order_Placed': return 'bg-green-100 text-green-800';
+      case 'PO_Raised': return 'bg-green-100 text-green-800';
       case 'Completed': return 'bg-green-100 text-green-800';
       case 'Cancelled': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';

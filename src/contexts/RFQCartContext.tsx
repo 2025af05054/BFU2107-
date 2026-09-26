@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface RFQProduct {
   id: string;
@@ -53,12 +55,25 @@ export const RFQCartProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // so there's no separate mount effect that can race with the save effect
   // below and clobber a value another tab/page just wrote.
   const [products, setProducts] = useState<RFQProduct[]>(readCartFromStorage);
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(products));
   }, [products]);
 
+  // Require sign-in before any product can be added to the RFQ cart.
+  const requireAuth = () => {
+    if (!user) {
+      toast.error('Please sign in to add products to your RFQ');
+      navigate('/auth');
+      return false;
+    }
+    return true;
+  };
+
   const addIdentifiedProduct: RFQCartContextValue['addIdentifiedProduct'] = (product) => {
+    if (!requireAuth()) return;
     setProducts((prev) => {
       const existingProduct = prev.find((p) => p.sourceProductId === product.id);
       if (existingProduct) {
@@ -83,6 +98,7 @@ export const RFQCartProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const addUnidentifiedProduct: RFQCartContextValue['addUnidentifiedProduct'] = (initialData) => {
+    if (!requireAuth()) return '';
     const newProduct: RFQProduct = {
       id: `rfq-unidentified-${Date.now()}-${Math.random()}`,
       type: 'unidentified',
@@ -102,6 +118,7 @@ export const RFQCartProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const addMultipleUnidentifiedProducts: RFQCartContextValue['addMultipleUnidentifiedProducts'] = (
     productsData
   ) => {
+    if (!requireAuth()) return;
     const newProducts: RFQProduct[] = productsData.map((data, index) => ({
       id: `rfq-unidentified-${Date.now()}-${index}`,
       type: 'unidentified' as const,

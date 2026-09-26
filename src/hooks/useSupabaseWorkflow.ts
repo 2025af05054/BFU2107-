@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserRole } from '@/hooks/useUserRole';
 import { toast } from 'sonner';
 
 export interface DatabaseRFQ {
@@ -8,6 +9,7 @@ export interface DatabaseRFQ {
   rfq_number: string;
   user_id: string;
   status: 'Created' | 'Order_Placed' | 'PO_Raised' | 'Completed' | 'Cancelled';
+  cancelled_by?: 'customer' | 'supplier' | null;
   created_at: string;
   updated_at: string;
   products?: DatabaseProduct[];
@@ -39,6 +41,16 @@ export interface DatabaseQuote {
   product_quotes?: DatabaseProductQuote[];
 }
 
+export interface DatabaseProductQuoteOffer {
+  id: string;
+  product_quote_id: string;
+  actor: 'customer' | 'supplier';
+  unit_price: number;
+  lead_time?: number | null;
+  message?: string | null;
+  created_at: string;
+}
+
 export interface DatabaseProductQuote {
   id: string;
   quote_id: string;
@@ -46,6 +58,12 @@ export interface DatabaseProductQuote {
   unit_price: number;
   lead_time: number;
   terms?: string;
+  // Per-line negotiation state: each product on a quote can be accepted,
+  // rejected, or countered independently of the others.
+  status: 'Pending' | 'Countered' | 'Accepted' | 'Rejected';
+  last_offer_by: 'supplier' | 'customer';
+  customer_offer_price?: number | null;
+  offers?: DatabaseProductQuoteOffer[];
 }
 
 export interface DatabaseOrder {
@@ -67,24 +85,32 @@ export interface CreateRFQData {
 
 export const useSupabaseWorkflow = () => {
   const { user } = useAuth();
+  const { isSupplier } = useUserRole();
   const [rfqs, setRFQs] = useState<DatabaseRFQ[]>([]);
   const [quotes, setQuotes] = useState<DatabaseQuote[]>([]);
   const [orders, setOrders] = useState<DatabaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch RFQs with products
+  // Fetch RFQs with products. Customers see their own RFQs; suppliers see
+  // the RFQs they've quoted on, so they can view/negotiate on those same
+  // pages (e.g. QuoteDetailsPage) as the customer.
   const fetchRFQs = async () => {
     if (!user) return;
 
     try {
-      const { data: rfqData, error: rfqError } = await supabase
+      let query = supabase
         .from('rfqs')
         .select(`
           *,
           products (*)
         `)
-        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
+
+      query = isSupplier()
+        ? query.in('id', (await supabase.from('quotes').select('rfq_id').eq('supplier_id', user.id)).data?.map(q => q.rfq_id) || [])
+        : query.eq('user_id', user.id);
+
+      const { data: rfqData, error: rfqError } = await query;
 
       if (rfqError) throw rfqError;
       setRFQs((rfqData || []) as DatabaseRFQ[]);
@@ -94,20 +120,26 @@ export const useSupabaseWorkflow = () => {
     }
   };
 
-  // Fetch quotes with product quotes
+  // Fetch quotes with product quotes. Customers see quotes on their RFQs;
+  // suppliers see the quotes they submitted.
   const fetchQuotes = async () => {
     if (!user) return;
 
     try {
-      const { data: quoteData, error: quoteError } = await supabase
+      let query = supabase
         .from('quotes')
         .select(`
           *,
-          product_quotes (*),
+          product_quotes (*, offers:product_quote_offers(*)),
           rfqs!inner (user_id)
         `)
-        .eq('rfqs.user_id', user.id)
         .order('created_at', { ascending: false });
+
+      query = isSupplier()
+        ? query.eq('supplier_id', user.id)
+        : query.eq('rfqs.user_id', user.id);
+
+      const { data: quoteData, error: quoteError } = await query;
 
       if (quoteError) throw quoteError;
       setQuotes((quoteData || []) as DatabaseQuote[]);
@@ -122,14 +154,20 @@ export const useSupabaseWorkflow = () => {
     if (!user) return;
 
     try {
-      const { data: orderData, error: orderError } = await supabase
+      let query = supabase
         .from('orders')
         .select(`
           *,
-          rfqs!inner (user_id)
+          rfqs!inner (user_id),
+          quotes!inner (supplier_id)
         `)
-        .eq('rfqs.user_id', user.id)
         .order('created_at', { ascending: false });
+
+      query = isSupplier()
+        ? query.eq('quotes.supplier_id', user.id)
+        : query.eq('rfqs.user_id', user.id);
+
+      const { data: orderData, error: orderError } = await query;
 
       if (orderError) throw orderError;
       setOrders((orderData || []) as DatabaseOrder[]);
@@ -202,11 +240,139 @@ export const useSupabaseWorkflow = () => {
     }
   };
 
-  // Accept quote
+  // A quote is ready to become a Purchase Order only once every product on
+  // it has been individually agreed by both sides — no partial POs.
+  const isQuoteFullyAgreed = (quote: DatabaseQuote) =>
+    !!quote.product_quotes?.length &&
+    quote.product_quotes.every(pq => pq.status === 'Accepted');
+
+  // Customer responds to the supplier's current price for one product line:
+  // accept it as-is, counter with a different price, or reject that item.
+  const customerRespondToLineItem = async (
+    productQuoteId: string,
+    action: 'accept' | 'counter' | 'reject',
+    payload?: { price?: number; message?: string }
+  ) => {
+    try {
+      if (action === 'accept') {
+        const { error } = await supabase
+          .from('product_quotes')
+          .update({ status: 'Accepted', last_offer_by: 'customer' })
+          .eq('id', productQuoteId);
+        if (error) throw error;
+        toast.success('Price accepted for this product');
+      } else if (action === 'counter') {
+        if (payload?.price === undefined) return;
+        const { error } = await supabase
+          .from('product_quotes')
+          .update({
+            status: 'Countered',
+            last_offer_by: 'customer',
+            customer_offer_price: payload.price,
+          })
+          .eq('id', productQuoteId);
+        if (error) throw error;
+
+        await supabase.from('product_quote_offers').insert([{
+          product_quote_id: productQuoteId,
+          actor: 'customer',
+          unit_price: payload.price,
+          message: payload.message || null,
+        }] as any);
+
+        toast.success('Counter-offer sent to supplier');
+      } else {
+        const { error } = await supabase
+          .from('product_quotes')
+          .update({ status: 'Rejected', last_offer_by: 'customer' })
+          .eq('id', productQuoteId);
+        if (error) throw error;
+        toast.success('Product rejected from this quote');
+      }
+
+      await fetchQuotes();
+    } catch (error) {
+      console.error('Error responding to product quote:', error);
+      toast.error('Failed to save your response');
+    }
+  };
+
+  // Supplier responds to the customer's counter-offer (or an untouched line
+  // item): accept the customer's price, counter back with a new one, or
+  // reject that item entirely.
+  const supplierRespondToLineItem = async (
+    productQuoteId: string,
+    action: 'accept' | 'counter' | 'reject',
+    payload?: { price?: number; leadTime?: number; message?: string }
+  ) => {
+    try {
+      const productQuote = quotes
+        .flatMap(q => q.product_quotes || [])
+        .find(pq => pq.id === productQuoteId);
+
+      if (action === 'accept') {
+        const acceptedPrice = productQuote?.customer_offer_price ?? productQuote?.unit_price;
+        const { error } = await supabase
+          .from('product_quotes')
+          .update({
+            status: 'Accepted',
+            last_offer_by: 'supplier',
+            unit_price: acceptedPrice,
+          })
+          .eq('id', productQuoteId);
+        if (error) throw error;
+        toast.success('Customer\'s price accepted for this product');
+      } else if (action === 'counter') {
+        if (payload?.price === undefined) return;
+        const { error } = await supabase
+          .from('product_quotes')
+          .update({
+            status: 'Countered',
+            last_offer_by: 'supplier',
+            unit_price: payload.price,
+            lead_time: payload.leadTime ?? productQuote?.lead_time,
+            customer_offer_price: null,
+          })
+          .eq('id', productQuoteId);
+        if (error) throw error;
+
+        await supabase.from('product_quote_offers').insert([{
+          product_quote_id: productQuoteId,
+          actor: 'supplier',
+          unit_price: payload.price,
+          lead_time: payload.leadTime ?? null,
+          message: payload.message || null,
+        }] as any);
+
+        toast.success('Counter-offer sent to customer');
+      } else {
+        const { error } = await supabase
+          .from('product_quotes')
+          .update({ status: 'Rejected', last_offer_by: 'supplier' })
+          .eq('id', productQuoteId);
+        if (error) throw error;
+        toast.success('Product rejected from this quote');
+      }
+
+      await fetchQuotes();
+    } catch (error) {
+      console.error('Error responding to product quote:', error);
+      toast.error('Failed to save your response');
+    }
+  };
+
+  // Finalize a quote into a Purchase Order. Only allowed once every line
+  // item has reached 'Accepted' — this is the moment the PO copy is created
+  // for both the customer and the supplier dashboard.
   const acceptQuote = async (quoteId: string) => {
     try {
       const quote = quotes.find(q => q.id === quoteId);
       if (!quote) return;
+
+      if (!isQuoteFullyAgreed(quote)) {
+        toast.error('All products must be agreed on before the PO can be generated');
+        return;
+      }
 
       // Update quote status
       const { error: quoteUpdateError } = await supabase
@@ -237,7 +403,7 @@ export const useSupabaseWorkflow = () => {
 
       if (rfqUpdateError) throw rfqUpdateError;
 
-      toast.success('Quote accepted and order created!');
+      toast.success('All items agreed — Purchase Order created for both sides!');
       await fetchRFQs();
       await fetchQuotes();
       await fetchOrders();
@@ -261,6 +427,37 @@ export const useSupabaseWorkflow = () => {
     } catch (error) {
       console.error('Error rejecting quote:', error);
       toast.error('Failed to reject quote');
+    }
+  };
+
+  // Cancel an RFQ entirely. Available to the customer who owns it, or any
+  // supplier who has quoted on it, at any point in the negotiation -- a
+  // deal can be called off from either side, not just by the party that
+  // started it. Blocked once the RFQ is already done (Completed/Cancelled)
+  // since there's nothing left to call off.
+  const cancelRFQ = async (rfqId: string) => {
+    try {
+      const rfq = rfqs.find(r => r.id === rfqId);
+      if (!rfq) return;
+
+      if (rfq.status === 'Cancelled' || rfq.status === 'Completed') {
+        toast.error('This RFQ is already closed');
+        return;
+      }
+
+      const { error } = await supabase
+        .from('rfqs')
+        .update({ status: 'Cancelled', cancelled_by: isSupplier() ? 'supplier' : 'customer' })
+        .eq('id', rfqId);
+
+      if (error) throw error;
+
+      toast.success('RFQ cancelled');
+      await fetchRFQs();
+      await fetchQuotes();
+    } catch (error) {
+      console.error('Error cancelling RFQ:', error);
+      toast.error('Failed to cancel RFQ');
     }
   };
 
@@ -314,7 +511,10 @@ export const useSupabaseWorkflow = () => {
       setOrders([]);
       setLoading(false);
     }
-  }, [user]);
+    // Re-fetch once the role resolves (isSupplier() flips from false to true)
+    // so a supplier's view doesn't get stuck on the customer-shaped query.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, isSupplier()]);
 
   return {
     rfqs,
@@ -324,6 +524,10 @@ export const useSupabaseWorkflow = () => {
     submitRFQ,
     acceptQuote,
     rejectQuote,
+    cancelRFQ,
+    isQuoteFullyAgreed,
+    customerRespondToLineItem,
+    supplierRespondToLineItem,
     updateOrderStatus,
     updatePaymentStatus,
     refresh: () => {
