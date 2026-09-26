@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNotifications, useMarkNotificationsAsRead } from "@/hooks/useNotifications";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 
 // Real cross-user notifications (new RFQ received, negotiation updates, PO
@@ -20,6 +20,7 @@ import { formatDistanceToNow } from "date-fns";
 // notifications edge function.
 const QuoteNotification = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { data } = useNotifications({ limit: 10 });
   const { mutate: markAsRead } = useMarkNotificationsAsRead();
 
@@ -43,6 +44,13 @@ const QuoteNotification = () => {
     }
   };
 
+  const handleNotificationClick = (link?: string | null, id?: string) => {
+    if (id && !notifications.find(n => n.id === id)?.is_read) {
+      markAsRead({ notificationIds: [id] });
+    }
+    if (link) navigate(link);
+  };
+
   return (
     <DropdownMenu onOpenChange={handleOpenChange}>
       <DropdownMenuTrigger asChild>
@@ -64,7 +72,11 @@ const QuoteNotification = () => {
           </p>
         ) : (
           notifications.map(n => (
-            <DropdownMenuItem key={n.id} className="flex-col items-start gap-0.5 whitespace-normal py-2">
+            <DropdownMenuItem
+              key={n.id}
+              className={`flex-col items-start gap-0.5 whitespace-normal py-2 ${n.link ? 'cursor-pointer' : ''}`}
+              onClick={() => handleNotificationClick(n.link, n.id)}
+            >
               <p className={`text-sm ${n.is_read ? 'text-muted-foreground' : 'font-medium text-foreground'}`}>
                 {n.message}
               </p>

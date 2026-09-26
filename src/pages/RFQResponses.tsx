@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -118,7 +119,7 @@ const RFQResponses = () => {
                   Start by responding to RFQs to build your quote history
                 </p>
                 <Button asChild>
-                  <a href="/supplier-dashboard">Browse RFQs</a>
+                  <Link to="/supplier-dashboard">Browse RFQs</Link>
                 </Button>
               </div>
             ) : (
@@ -172,10 +173,10 @@ const RFQResponses = () => {
 
                     <div className="flex items-center gap-2 pt-4 border-t border-border">
                       <Button variant="outline" size="sm" asChild>
-                        <a href={`/quote/${quote.id}`}>View Quote</a>
+                        <Link to={`/quote/${quote.id}`}>View Quote</Link>
                       </Button>
                       <Button variant="outline" size="sm" asChild>
-                        <a href={`/rfq/${quote.rfq_id}`}>View RFQ</a>
+                        <Link to={`/rfq/${quote.rfq_id}`}>View RFQ</Link>
                       </Button>
                     </div>
                   </div>

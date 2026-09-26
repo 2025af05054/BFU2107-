@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
       // Build query
       let query = supabase
         .from('notifications')
-        .select('id, message, is_read, created_at')
+        .select('id, message, link, is_read, created_at')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1)
@@ -147,7 +147,7 @@ Deno.serve(async (req) => {
     if (req.method === 'POST') {
       // Create notification (typically used by system/admin)
       const body = await req.json()
-      const { user_id, message } = body
+      const { user_id, message, link } = body
 
       if (!user_id || !message) {
         return new Response(
@@ -181,6 +181,7 @@ Deno.serve(async (req) => {
         .insert([{
           user_id,
           message,
+          link: link || null,
           is_read: false
         }])
         .select()

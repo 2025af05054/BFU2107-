@@ -93,9 +93,9 @@ export interface CreateRFQData {
 // other user (see the "System can create notifications" RLS policy) -- this
 // is how the other party in a negotiation finds out something happened
 // without needing a server-side job.
-const notifyUser = async (userId: string, message: string) => {
+const notifyUser = async (userId: string, message: string, link?: string) => {
   try {
-    await supabase.from('notifications').insert([{ user_id: userId, message }] as any);
+    await supabase.from('notifications').insert([{ user_id: userId, message, link: link || null }] as any);
   } catch (error) {
     // Best-effort: a failed notification shouldn't block the underlying
     // negotiation action from succeeding.
@@ -112,25 +112,23 @@ export const useSupabaseWorkflow = () => {
   const [loading, setLoading] = useState(true);
 
   // Fetch RFQs with products. Customers see their own RFQs; suppliers see
-  // the RFQs they've quoted on, so they can view/negotiate on those same
-  // pages (e.g. QuoteDetailsPage) as the customer.
+  // every RFQ they can act on -- open ones, ones targeted at them, and ones
+  // they've already quoted -- matching the "Suppliers can view open or
+  // targeted RFQs" RLS policy. This has to mirror that policy's visibility
+  // exactly: if it's narrower (e.g. "quoted on" only), a supplier clicking
+  // "View Details" on a fresh RFQ they haven't quoted yet finds nothing in
+  // this hook's state even though the row is right there in the database.
   const fetchRFQs = async () => {
     if (!user) return;
 
     try {
-      let query = supabase
+      const { data: rfqData, error: rfqError } = await supabase
         .from('rfqs')
         .select(`
           *,
           products (*)
         `)
         .order('created_at', { ascending: false });
-
-      query = isSupplier()
-        ? query.in('id', (await supabase.from('quotes').select('rfq_id').eq('supplier_id', user.id)).data?.map(q => q.rfq_id) || [])
-        : query.eq('user_id', user.id);
-
-      const { data: rfqData, error: rfqError } = await query;
 
       if (rfqError) throw rfqError;
       setRFQs((rfqData || []) as DatabaseRFQ[]);
@@ -257,7 +255,8 @@ export const useSupabaseWorkflow = () => {
       if (rfqData.targetSupplierId) {
         await notifyUser(
           rfqData.targetSupplierId,
-          `New RFQ ${rfq.rfq_number} received from ${user.user_metadata?.company || user.email || 'a customer'}.`
+          `New RFQ ${rfq.rfq_number} received from ${user.user_metadata?.company || user.email || 'a customer'}.`,
+          `/rfq/${rfq.id}`
         );
       }
 
@@ -360,8 +359,8 @@ export const useSupabaseWorkflow = () => {
         .select('rfq_number, user_id')
         .eq('id', quoteRow.rfq_id)
         .single();
-      if (rfqRow?.user_id) await notifyUser(rfqRow.user_id, `RFQ ${rfqRow.rfq_number} is fully agreed — Purchase Order created!`);
-      if (quoteRow.supplier_id) await notifyUser(quoteRow.supplier_id, `RFQ ${rfqRow?.rfq_number || ''} is fully agreed — Purchase Order created!`);
+      if (rfqRow?.user_id) await notifyUser(rfqRow.user_id, `RFQ ${rfqRow.rfq_number} is fully agreed — Purchase Order created!`, `/quote/${quoteId}`);
+      if (quoteRow.supplier_id) await notifyUser(quoteRow.supplier_id, `RFQ ${rfqRow?.rfq_number || ''} is fully agreed — Purchase Order created!`, `/quote/${quoteId}`);
 
       await fetchRFQs();
       await fetchQuotes();
@@ -389,7 +388,7 @@ export const useSupabaseWorkflow = () => {
           .eq('id', productQuoteId);
         if (error) throw error;
         toast.success('Price accepted for this product');
-        if (ctx?.supplierId) await notifyUser(ctx.supplierId, `Customer accepted your price for "${ctx.productName}" on RFQ ${ctx.rfqNumber}.`);
+        if (ctx?.supplierId) await notifyUser(ctx.supplierId, `Customer accepted your price for "${ctx.productName}" on RFQ ${ctx.rfqNumber}.`, `/quote/${ctx.quoteId}`);
       } else if (action === 'counter') {
         if (payload?.price === undefined) return;
         const { error } = await supabase
@@ -410,7 +409,7 @@ export const useSupabaseWorkflow = () => {
         }] as any);
 
         toast.success('Counter-offer sent to supplier');
-        if (ctx?.supplierId) await notifyUser(ctx.supplierId, `Customer countered ₹${payload.price} for "${ctx.productName}" on RFQ ${ctx.rfqNumber}.`);
+        if (ctx?.supplierId) await notifyUser(ctx.supplierId, `Customer countered ₹${payload.price} for "${ctx.productName}" on RFQ ${ctx.rfqNumber}.`, `/quote/${ctx.quoteId}`);
       } else {
         const { error } = await supabase
           .from('product_quotes')
@@ -418,7 +417,7 @@ export const useSupabaseWorkflow = () => {
           .eq('id', productQuoteId);
         if (error) throw error;
         toast.success('Product removed from this RFQ');
-        if (ctx?.supplierId) await notifyUser(ctx.supplierId, `Customer removed "${ctx.productName}" from RFQ ${ctx.rfqNumber}.`);
+        if (ctx?.supplierId) await notifyUser(ctx.supplierId, `Customer removed "${ctx.productName}" from RFQ ${ctx.rfqNumber}.`, `/quote/${ctx.quoteId}`);
       }
 
       await fetchQuotes();
@@ -455,7 +454,7 @@ export const useSupabaseWorkflow = () => {
           .eq('id', productQuoteId);
         if (error) throw error;
         toast.success('Customer\'s price accepted for this product');
-        if (ctx?.customerId) await notifyUser(ctx.customerId, `Supplier accepted your price for "${ctx.productName}" on RFQ ${ctx.rfqNumber}.`);
+        if (ctx?.customerId) await notifyUser(ctx.customerId, `Supplier accepted your price for "${ctx.productName}" on RFQ ${ctx.rfqNumber}.`, `/quote/${ctx.quoteId}`);
       } else if (action === 'counter') {
         if (payload?.price === undefined) return;
         const { error } = await supabase
@@ -479,7 +478,7 @@ export const useSupabaseWorkflow = () => {
         }] as any);
 
         toast.success('Counter-offer sent to customer');
-        if (ctx?.customerId) await notifyUser(ctx.customerId, `Supplier countered ₹${payload.price} for "${ctx.productName}" on RFQ ${ctx.rfqNumber}.`);
+        if (ctx?.customerId) await notifyUser(ctx.customerId, `Supplier countered ₹${payload.price} for "${ctx.productName}" on RFQ ${ctx.rfqNumber}.`, `/quote/${ctx.quoteId}`);
       } else {
         const { error } = await supabase
           .from('product_quotes')
@@ -487,7 +486,7 @@ export const useSupabaseWorkflow = () => {
           .eq('id', productQuoteId);
         if (error) throw error;
         toast.success('Product removed from this RFQ');
-        if (ctx?.customerId) await notifyUser(ctx.customerId, `Supplier removed "${ctx.productName}" from RFQ ${ctx.rfqNumber}.`);
+        if (ctx?.customerId) await notifyUser(ctx.customerId, `Supplier removed "${ctx.productName}" from RFQ ${ctx.rfqNumber}.`, `/quote/${ctx.quoteId}`);
       }
 
       await fetchQuotes();
@@ -560,10 +559,10 @@ export const useSupabaseWorkflow = () => {
         );
         if (rfq.target_supplier_id) supplierIds.add(rfq.target_supplier_id);
         for (const supplierId of supplierIds) {
-          await notifyUser(supplierId, `RFQ ${rfq.rfq_number} was cancelled by the customer.`);
+          await notifyUser(supplierId, `RFQ ${rfq.rfq_number} was cancelled by the customer.`, `/rfq/${rfqId}`);
         }
       } else {
-        await notifyUser(rfq.user_id, `RFQ ${rfq.rfq_number} was cancelled by the supplier.`);
+        await notifyUser(rfq.user_id, `RFQ ${rfq.rfq_number} was cancelled by the supplier.`, `/rfq/${rfqId}`);
       }
 
       await fetchRFQs();

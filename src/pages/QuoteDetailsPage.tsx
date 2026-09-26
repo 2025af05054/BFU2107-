@@ -67,13 +67,15 @@ const QuoteDetailsPage = () => {
     );
   }
 
+  const backToDashboardPath = isSupplier() ? '/supplier-dashboard' : '/rfq-dashboard';
+
   if (!rfq) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-foreground mb-4">Quote Not Found</h1>
-          <p className="text-muted-foreground mb-6">The quote you're looking for doesn't exist or has been removed.</p>
-          <Link to="/rfq-dashboard">
+          <h1 className="text-2xl font-bold text-foreground mb-4">RFQ Not Found</h1>
+          <p className="text-muted-foreground mb-6">The RFQ you're looking for doesn't exist, or you don't have access to it.</p>
+          <Link to={backToDashboardPath}>
             <Button variant="hero">Back to Dashboard</Button>
           </Link>
         </div>
@@ -89,6 +91,47 @@ const QuoteDetailsPage = () => {
   };
 
   if (!quote) {
+    // A supplier landing here (e.g. from "View Details" on an RFQ they
+    // haven't quoted yet) needs a way forward -- show the products and a
+    // Create Quote CTA instead of the customer-facing "check back soon"
+    // dead end.
+    if (isSupplier() && !rfqIsClosed) {
+      return (
+        <div className="container mx-auto px-4 py-8 max-w-3xl">
+          <div className="mb-6">
+            <Link to={backToDashboardPath} className="inline-flex items-center text-muted-foreground hover:text-foreground">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Dashboard
+            </Link>
+          </div>
+          <h1 className="text-2xl font-bold text-foreground mb-2">RFQ {rfq.rfq_number}</h1>
+          <p className="text-muted-foreground mb-6">You haven't submitted a quote for this RFQ yet.</p>
+          <Card className="shadow-card mb-6">
+            <CardHeader>
+              <CardTitle>Requested Products</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {(rfq.products || []).map(product => (
+                <div key={product.id} className="border border-card-border rounded-lg p-3">
+                  <p className="font-medium">{product.name}</p>
+                  <p className="text-sm text-muted-foreground">{product.description}</p>
+                  <p className="text-sm text-muted-foreground mt-1">Quantity: {product.quantity}</p>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+          <div className="flex items-center gap-3">
+            <Link to={`/quote/create/${rfq.id}`}>
+              <Button variant="hero">Create Quote</Button>
+            </Link>
+            <Button variant="outline" onClick={handleCancelRFQ}>
+              <X className="w-4 h-4 mr-2" /> Cancel RFQ
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">
@@ -101,7 +144,7 @@ const QuoteDetailsPage = () => {
               : `RFQ ${rfq.rfq_number} hasn't received a supplier quote yet. Check back soon.`}
           </p>
           <div className="flex items-center justify-center gap-3">
-            <Link to="/rfq-dashboard">
+            <Link to={backToDashboardPath}>
               <Button variant="hero">Back to Dashboard</Button>
             </Link>
             {!rfqIsClosed && (

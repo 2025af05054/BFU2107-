@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -188,10 +189,10 @@ const SupplierDashboard = () => {
                     </div>
                     <div className="flex items-center gap-2">
                       <Button variant="outline" size="sm" asChild>
-                        <a href={`/rfq/${rfq.id}`}>View Details</a>
+                        <Link to={`/rfq/${rfq.id}`}>View Details</Link>
                       </Button>
                       <Button size="sm" asChild>
-                        <a href={`/quote/create/${rfq.id}`}>Create Quote</a>
+                        <Link to={`/quote/create/${rfq.id}`}>Create Quote</Link>
                       </Button>
                     </div>
                   </div>

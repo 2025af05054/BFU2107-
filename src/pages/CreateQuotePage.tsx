@@ -140,6 +140,7 @@ const CreateQuotePage = () => {
       await supabase.from("notifications").insert([{
         user_id: rfq.user_id,
         message: `You received a quote for RFQ ${rfq.rfq_number}.`,
+        link: `/quote/${quote.id}`,
       }] as any);
 
       toast.success("Quote submitted successfully!");
