@@ -15,6 +15,7 @@ export interface RFQProduct {
   images?: string[];
   // For identified products from supplier_products
   sourceProductId?: string;
+  supplierId?: string;
   supplierName?: string;
   category?: string;
 }
@@ -25,6 +26,7 @@ interface RFQCartContextValue {
     id: string;
     name: string;
     description: string;
+    supplier_id?: string;
     supplier_name?: string;
     category?: string;
   }) => void;
@@ -89,6 +91,7 @@ export const RFQCartProvider: React.FC<{ children: React.ReactNode }> = ({ child
         description: product.description || '',
         quantity: 1,
         sourceProductId: product.id,
+        supplierId: product.supplier_id,
         supplierName: product.supplier_name,
         category: product.category,
       };

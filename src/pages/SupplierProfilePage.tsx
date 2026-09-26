@@ -174,6 +174,7 @@ const SupplierProfilePage = () => {
                       id: product.id,
                       name: product.name,
                       description: product.description,
+                      supplier_id: product.supplier_id,
                       supplier_name: product.supplier.company_name,
                       category: product.category,
                     })

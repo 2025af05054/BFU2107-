@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, CheckCircle, X, MessageSquare, Calendar, Loader2, Handshake, Printer } from "lucide-react";
+import { ArrowLeft, CheckCircle, X, MessageSquare, Calendar, Loader2, Handshake, Printer, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -36,7 +36,6 @@ const QuoteDetailsPage = () => {
     quotes,
     rfqs,
     orders,
-    acceptQuote,
     rejectQuote,
     cancelRFQ,
     isQuoteFullyAgreed,
@@ -48,6 +47,10 @@ const QuoteDetailsPage = () => {
   const { isSupplier } = useUserRole();
   const [chatOpen, setChatOpen] = useState(false);
   const [counterDrafts, setCounterDrafts] = useState<Record<string, { price: string; message: string }>>({});
+  // Which line items currently have their counter-price box open. Clicking
+  // the ✕ on a product opens this instead of immediately rejecting it —
+  // matches "click cross, type the new price, send it back" from the spec.
+  const [counterOpenFor, setCounterOpenFor] = useState<Record<string, boolean>>({});
 
   let quote = quotes.find(q => q.id === id);
   const rfq = quote ? rfqs.find(r => r.id === quote.rfq_id) : rfqs.find(r => r.id === id);
@@ -137,6 +140,10 @@ const QuoteDetailsPage = () => {
     }
   };
 
+  const toggleCounter = (id: string) => {
+    setCounterOpenFor(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
   const handleCounter = (pq: DatabaseProductQuote) => {
     const draft = getDraft(pq.id);
     const price = parseFloat(draft.price);
@@ -150,14 +157,7 @@ const QuoteDetailsPage = () => {
       customerRespondToLineItem(pq.id, 'counter', { price, message: draft.message });
     }
     setDraft(pq.id, { price: '', message: '' });
-  };
-
-  const handleFinalize = async () => {
-    try {
-      await acceptQuote(quote!.id);
-    } catch {
-      toast.error('Failed to generate Purchase Order. Please try again.');
-    }
+    setCounterOpenFor(prev => ({ ...prev, [pq.id]: false }));
   };
 
   const handleRejectQuote = async () => {
@@ -327,43 +327,57 @@ const QuoteDetailsPage = () => {
                             </p>
                           ) : (
                             <>
+                              {/* ✓ accepts the current price as-is. ✕ opens the
+                                  counter box below to type a new price and send
+                                  it back — it doesn't reject the item outright. */}
                               <div className="flex flex-wrap gap-2">
                                 <Button size="sm" onClick={() => handleAccept(productQuote)}>
-                                  <CheckCircle className="w-4 h-4 mr-1" /> Accept Price
+                                  <CheckCircle className="w-4 h-4 mr-1" /> Accept
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant={counterOpenFor[productQuote.id] ? 'secondary' : 'outline'}
+                                  onClick={() => toggleCounter(productQuote.id)}
+                                >
+                                  <X className="w-4 h-4 mr-1" /> Counter
                                 </Button>
                               </div>
-                              <div className="grid sm:grid-cols-[140px_1fr_auto] gap-2 items-end">
-                                <div>
-                                  <Label htmlFor={`counter-${productQuote.id}`} className="text-xs">Counter Price (₹)</Label>
-                                  <Input
-                                    id={`counter-${productQuote.id}`}
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    value={draft.price}
-                                    onChange={(e) => setDraft(productQuote.id, { price: e.target.value })}
-                                  />
+                              {counterOpenFor[productQuote.id] && (
+                                <div className="grid sm:grid-cols-[140px_1fr_auto] gap-2 items-end">
+                                  <div>
+                                    <Label htmlFor={`counter-${productQuote.id}`} className="text-xs">New Price (₹)</Label>
+                                    <Input
+                                      id={`counter-${productQuote.id}`}
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      autoFocus
+                                      value={draft.price}
+                                      onChange={(e) => setDraft(productQuote.id, { price: e.target.value })}
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label htmlFor={`msg-${productQuote.id}`} className="text-xs">Message (optional)</Label>
+                                    <Input
+                                      id={`msg-${productQuote.id}`}
+                                      placeholder="e.g. Can you do this for a bulk order?"
+                                      value={draft.message}
+                                      onChange={(e) => setDraft(productQuote.id, { message: e.target.value })}
+                                    />
+                                  </div>
+                                  <Button size="sm" variant="secondary" onClick={() => handleCounter(productQuote)}>
+                                    <Handshake className="w-4 h-4 mr-1" /> Send
+                                  </Button>
                                 </div>
-                                <div>
-                                  <Label htmlFor={`msg-${productQuote.id}`} className="text-xs">Message (optional)</Label>
-                                  <Input
-                                    id={`msg-${productQuote.id}`}
-                                    placeholder="e.g. Can you do this for a bulk order?"
-                                    value={draft.message}
-                                    onChange={(e) => setDraft(productQuote.id, { message: e.target.value })}
-                                  />
-                                </div>
-                                <Button size="sm" variant="secondary" onClick={() => handleCounter(productQuote)}>
-                                  <Handshake className="w-4 h-4 mr-1" /> Send Counter
-                                </Button>
-                              </div>
+                              )}
                             </>
                           )}
                           {/* Removing a stalled item doesn't need to wait for your turn --
-                              either side can walk away from a single product at any point. */}
+                              either side can walk away from a single product at any point,
+                              and the rest of the RFQ can still complete without it. */}
                           <div className="pt-1">
-                            <Button size="sm" variant="outline" onClick={() => handleReject(productQuote)}>
-                              <X className="w-4 h-4 mr-1" /> Remove From RFQ
+                            <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => handleReject(productQuote)}>
+                              <Trash2 className="w-4 h-4 mr-1" /> Remove This Product
                             </Button>
                           </div>
                         </div>
@@ -442,18 +456,12 @@ const QuoteDetailsPage = () => {
               {quote.status === 'Pending' && !isExpired && !rfqIsClosed && (
                 <div className="space-y-3 pt-4 print:hidden">
                   {fullyAgreed ? (
-                    <>
-                      <p className="text-sm text-green-700 bg-green-50 rounded-md p-2 text-center">
-                        All products agreed! Ready to generate the Purchase Order.
-                      </p>
-                      <Button variant="hero" className="w-full" onClick={handleFinalize}>
-                        <CheckCircle className="w-4 h-4 mr-2" />
-                        Generate Purchase Order
-                      </Button>
-                    </>
+                    <p className="text-sm text-green-700 bg-green-50 rounded-md p-2 text-center">
+                      All products agreed — generating the Purchase Order...
+                    </p>
                   ) : (
                     <p className="text-sm text-muted-foreground text-center">
-                      Respond to each product above. The Purchase Order can be generated once every item is accepted by both sides.
+                      Respond to each product above. The moment every item is accepted by both sides, the Purchase Order is created automatically.
                     </p>
                   )}
                   <Button variant="outline" className="w-full" onClick={handleRejectQuote}>

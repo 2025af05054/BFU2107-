@@ -148,6 +148,15 @@ const RFQPage = () => {
     setIsSubmitting(true);
     
     try {
+      // If every identified product in the cart came from the same
+      // supplier's portfolio, target the RFQ at just that supplier instead
+      // of broadcasting it to everyone — matches "customer opens trp_test's
+      // portfolio and sends the RFQ straight to trp_test" flow.
+      const supplierIds = new Set(
+        products.filter(p => p.supplierId).map(p => p.supplierId)
+      );
+      const targetSupplierId = supplierIds.size === 1 ? [...supplierIds][0] : undefined;
+
       const rfqData: CreateRFQData = {
         products: products.map(p => ({
           type: p.type,
@@ -158,7 +167,8 @@ const RFQPage = () => {
           ...(p.targetPrice && { target_price: p.targetPrice }),
           ...(p.targetLeadTime && { target_lead_time: p.targetLeadTime }),
           ...(p.images && p.images.length > 0 && { images: p.images }),
-        }))
+        })),
+        targetSupplierId,
       };
 
       const rfqId = await submitRFQ(rfqData);

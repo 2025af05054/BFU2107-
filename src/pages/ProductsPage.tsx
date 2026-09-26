@@ -25,6 +25,7 @@ interface Product {
   image: string;
   images: string[];
   supplier: string;
+  supplierId: string;
   rating: number;
   inStock: boolean;
   isWishlisted: boolean;
@@ -106,6 +107,7 @@ const ProductsPage = () => {
         image: product.images && product.images.length > 0 ? product.images[0] : '/placeholder.svg',
         images: product.images || [],
         supplier: product.supplier.company_name || 'Unknown Supplier',
+        supplierId: product.supplier_id,
         rating: 4.0 + seededRandom(product.id) * 1, // Stable placeholder rating between 4.0-5.0
         inStock: seededRandom(product.id + '-stock') > 0.1, // Stable placeholder stock status
         isWishlisted: wishlistedItems.has(product.id)
@@ -131,6 +133,7 @@ const ProductsPage = () => {
       id: product.id,
       name: product.name,
       description: product.description,
+      supplier_id: product.supplierId,
       supplier_name: product.supplier,
       category: product.category
     });

@@ -412,6 +412,7 @@ export type Database = {
           rfq_number: string
           rfq_status: Database["public"]["Enums"]["rfq_status"] | null
           status: string
+          target_supplier_id: string | null
           updated_at: string
           user_id: string
         }
@@ -423,6 +424,7 @@ export type Database = {
           rfq_number: string
           rfq_status?: Database["public"]["Enums"]["rfq_status"] | null
           status?: string
+          target_supplier_id?: string | null
           updated_at?: string
           user_id: string
         }
@@ -434,10 +436,19 @@ export type Database = {
           rfq_number?: string
           rfq_status?: Database["public"]["Enums"]["rfq_status"] | null
           status?: string
+          target_supplier_id?: string | null
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "rfqs_target_supplier_id_fkey"
+            columns: ["target_supplier_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       supplier_products: {
         Row: {

@@ -261,6 +261,7 @@ const SupplierPortfolioPage = () => {
             id: p.id,
             name: p.name,
             description: p.description,
+            supplier_id: supplier.supplier_id,
             supplier_name: supplier.company_name,
             category: p.category,
           });

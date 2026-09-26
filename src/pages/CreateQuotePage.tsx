@@ -23,6 +23,7 @@ interface RFQProduct {
 interface RFQ {
   id: string;
   rfq_number: string;
+  user_id: string;
   products: RFQProduct[];
 }
 
@@ -54,7 +55,7 @@ const CreateQuotePage = () => {
     try {
       const { data, error } = await supabase
         .from("rfqs")
-        .select("id, rfq_number, products(id, name, description, quantity, target_price, target_lead_time)")
+        .select("id, rfq_number, user_id, products(id, name, description, quantity, target_price, target_lead_time)")
         .eq("id", id)
         .single();
 
@@ -134,6 +135,12 @@ const CreateQuotePage = () => {
         .insert(productQuotesToInsert);
 
       if (productQuotesError) throw productQuotesError;
+
+      // Let the customer know their RFQ now has a quote to review.
+      await supabase.from("notifications").insert([{
+        user_id: rfq.user_id,
+        message: `You received a quote for RFQ ${rfq.rfq_number}.`,
+      }] as any);
 
       toast.success("Quote submitted successfully!");
       navigate("/rfq-responses");

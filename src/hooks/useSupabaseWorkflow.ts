@@ -10,6 +10,9 @@ export interface DatabaseRFQ {
   user_id: string;
   status: 'Created' | 'Order_Placed' | 'PO_Raised' | 'Completed' | 'Cancelled';
   cancelled_by?: 'customer' | 'supplier' | null;
+  // Set when the RFQ was created from one specific supplier's portfolio, so
+  // it's private to that supplier instead of broadcast to everyone.
+  target_supplier_id?: string | null;
   created_at: string;
   updated_at: string;
   products?: DatabaseProduct[];
@@ -81,7 +84,24 @@ export interface DatabaseOrder {
 
 export interface CreateRFQData {
   products: Omit<DatabaseProduct, 'id' | 'rfq_id' | 'created_at'>[];
+  // When set, this RFQ is private to that one supplier (e.g. the customer
+  // built it from that supplier's portfolio page) instead of open to all.
+  targetSupplierId?: string;
 }
+
+// Notifications are plain rows any authenticated user can insert for any
+// other user (see the "System can create notifications" RLS policy) -- this
+// is how the other party in a negotiation finds out something happened
+// without needing a server-side job.
+const notifyUser = async (userId: string, message: string) => {
+  try {
+    await supabase.from('notifications').insert([{ user_id: userId, message }] as any);
+  } catch (error) {
+    // Best-effort: a failed notification shouldn't block the underlying
+    // negotiation action from succeeding.
+    console.error('Error creating notification:', error);
+  }
+};
 
 export const useSupabaseWorkflow = () => {
   const { user } = useAuth();
@@ -192,6 +212,7 @@ export const useSupabaseWorkflow = () => {
         .from('rfqs')
         .insert([{
           user_id: user.id,
+          target_supplier_id: rfqData.targetSupplierId || null,
         }] as any)
         .select()
         .single();
@@ -230,6 +251,16 @@ export const useSupabaseWorkflow = () => {
 
       console.log('Products created successfully');
 
+      // If the RFQ was targeted at one supplier (built from their portfolio
+      // page), let them know immediately — this is the "new RFQ request
+      // received" notification.
+      if (rfqData.targetSupplierId) {
+        await notifyUser(
+          rfqData.targetSupplierId,
+          `New RFQ ${rfq.rfq_number} received from ${user.user_metadata?.company || user.email || 'a customer'}.`
+        );
+      }
+
       toast.success('RFQ submitted successfully!');
 
       await fetchRFQs();
@@ -240,20 +271,117 @@ export const useSupabaseWorkflow = () => {
     }
   };
 
-  // A quote is ready to become a Purchase Order only once every product on
-  // it has been individually agreed by both sides — no partial POs.
-  const isQuoteFullyAgreed = (quote: DatabaseQuote) =>
-    !!quote.product_quotes?.length &&
-    quote.product_quotes.every(pq => pq.status === 'Accepted');
+  // A quote is ready to become a Purchase Order once every product still
+  // actively in the deal has been agreed by both sides. Products either
+  // side removed ('Rejected') don't block this — the rest of the RFQ can
+  // still complete without them. If everything was removed, there's
+  // nothing left to buy, so it's not "agreed".
+  const isQuoteFullyAgreed = (quote: DatabaseQuote) => {
+    const active = (quote.product_quotes || []).filter(pq => pq.status !== 'Rejected');
+    return active.length > 0 && active.every(pq => pq.status === 'Accepted');
+  };
+
+  // Looks up who to notify and what to say for a single product line, so
+  // both negotiation actions can tell the other party what happened.
+  const getLineItemContext = async (productQuoteId: string) => {
+    const { data, error } = await supabase
+      .from('product_quotes')
+      .select(`
+        quote_id,
+        product_id,
+        quotes ( rfq_id, supplier_id, quote_number, rfqs ( rfq_number, user_id ) ),
+        products ( name )
+      `)
+      .eq('id', productQuoteId)
+      .single();
+    if (error || !data) return null;
+    const quoteRow: any = data.quotes;
+    const rfqRow: any = quoteRow?.rfqs;
+    const productRow: any = data.products;
+    return {
+      quoteId: data.quote_id as string,
+      customerId: rfqRow?.user_id as string | undefined,
+      supplierId: quoteRow?.supplier_id as string | undefined,
+      rfqNumber: rfqRow?.rfq_number as string | undefined,
+      productName: productRow?.name as string | undefined,
+    };
+  };
+
+  // If every active line item on a quote is now Accepted, immediately
+  // finalize it into a Purchase Order — no manual confirmation step. This
+  // is the moment the PO copy becomes available to both the customer and
+  // the supplier.
+  const finalizeQuoteIfComplete = async (quoteId: string) => {
+    try {
+      const { data: quoteRow, error: quoteFetchError } = await supabase
+        .from('quotes')
+        .select('id, status, rfq_id, supplier_id')
+        .eq('id', quoteId)
+        .single();
+      if (quoteFetchError || !quoteRow || quoteRow.status === 'Accepted') return;
+
+      const { data: items, error: itemsError } = await supabase
+        .from('product_quotes')
+        .select('status')
+        .eq('quote_id', quoteId);
+      if (itemsError || !items) return;
+
+      const active = items.filter(i => i.status !== 'Rejected');
+      if (active.length === 0 || !active.every(i => i.status === 'Accepted')) return;
+
+      const { error: quoteUpdateError } = await supabase
+        .from('quotes')
+        .update({ status: 'Accepted' })
+        .eq('id', quoteId);
+      if (quoteUpdateError) throw quoteUpdateError;
+
+      const { error: orderError } = await supabase
+        .from('orders')
+        .insert([{
+          rfq_id: quoteRow.rfq_id,
+          quote_id: quoteId,
+          po_number: `PO${Date.now().toString().slice(-6)}`,
+          delivery_address: 'Default delivery address',
+          delivery_date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        }] as any);
+      if (orderError) throw orderError;
+
+      const { error: rfqUpdateError } = await supabase
+        .from('rfqs')
+        .update({ status: 'Order_Placed' })
+        .eq('id', quoteRow.rfq_id);
+      if (rfqUpdateError) throw rfqUpdateError;
+
+      toast.success('All items agreed — Purchase Order created for both sides!');
+
+      // Let both sides know, since only one of them triggered this.
+      const { data: rfqRow } = await supabase
+        .from('rfqs')
+        .select('rfq_number, user_id')
+        .eq('id', quoteRow.rfq_id)
+        .single();
+      if (rfqRow?.user_id) await notifyUser(rfqRow.user_id, `RFQ ${rfqRow.rfq_number} is fully agreed — Purchase Order created!`);
+      if (quoteRow.supplier_id) await notifyUser(quoteRow.supplier_id, `RFQ ${rfqRow?.rfq_number || ''} is fully agreed — Purchase Order created!`);
+
+      await fetchRFQs();
+      await fetchQuotes();
+      await fetchOrders();
+    } catch (error) {
+      console.error('Error finalizing quote:', error);
+    }
+  };
 
   // Customer responds to the supplier's current price for one product line:
-  // accept it as-is, counter with a different price, or reject that item.
+  // accept it as-is, counter with a different price, or remove it from the
+  // negotiation entirely.
   const customerRespondToLineItem = async (
     productQuoteId: string,
     action: 'accept' | 'counter' | 'reject',
     payload?: { price?: number; message?: string }
   ) => {
     try {
+      const ctx = await getLineItemContext(productQuoteId);
+
       if (action === 'accept') {
         const { error } = await supabase
           .from('product_quotes')
@@ -261,6 +389,7 @@ export const useSupabaseWorkflow = () => {
           .eq('id', productQuoteId);
         if (error) throw error;
         toast.success('Price accepted for this product');
+        if (ctx?.supplierId) await notifyUser(ctx.supplierId, `Customer accepted your price for "${ctx.productName}" on RFQ ${ctx.rfqNumber}.`);
       } else if (action === 'counter') {
         if (payload?.price === undefined) return;
         const { error } = await supabase
@@ -281,16 +410,19 @@ export const useSupabaseWorkflow = () => {
         }] as any);
 
         toast.success('Counter-offer sent to supplier');
+        if (ctx?.supplierId) await notifyUser(ctx.supplierId, `Customer countered ₹${payload.price} for "${ctx.productName}" on RFQ ${ctx.rfqNumber}.`);
       } else {
         const { error } = await supabase
           .from('product_quotes')
           .update({ status: 'Rejected', last_offer_by: 'customer' })
           .eq('id', productQuoteId);
         if (error) throw error;
-        toast.success('Product rejected from this quote');
+        toast.success('Product removed from this RFQ');
+        if (ctx?.supplierId) await notifyUser(ctx.supplierId, `Customer removed "${ctx.productName}" from RFQ ${ctx.rfqNumber}.`);
       }
 
       await fetchQuotes();
+      if (ctx?.quoteId) await finalizeQuoteIfComplete(ctx.quoteId);
     } catch (error) {
       console.error('Error responding to product quote:', error);
       toast.error('Failed to save your response');
@@ -299,13 +431,14 @@ export const useSupabaseWorkflow = () => {
 
   // Supplier responds to the customer's counter-offer (or an untouched line
   // item): accept the customer's price, counter back with a new one, or
-  // reject that item entirely.
+  // remove it from the negotiation entirely.
   const supplierRespondToLineItem = async (
     productQuoteId: string,
     action: 'accept' | 'counter' | 'reject',
     payload?: { price?: number; leadTime?: number; message?: string }
   ) => {
     try {
+      const ctx = await getLineItemContext(productQuoteId);
       const productQuote = quotes
         .flatMap(q => q.product_quotes || [])
         .find(pq => pq.id === productQuoteId);
@@ -322,6 +455,7 @@ export const useSupabaseWorkflow = () => {
           .eq('id', productQuoteId);
         if (error) throw error;
         toast.success('Customer\'s price accepted for this product');
+        if (ctx?.customerId) await notifyUser(ctx.customerId, `Supplier accepted your price for "${ctx.productName}" on RFQ ${ctx.rfqNumber}.`);
       } else if (action === 'counter') {
         if (payload?.price === undefined) return;
         const { error } = await supabase
@@ -345,72 +479,36 @@ export const useSupabaseWorkflow = () => {
         }] as any);
 
         toast.success('Counter-offer sent to customer');
+        if (ctx?.customerId) await notifyUser(ctx.customerId, `Supplier countered ₹${payload.price} for "${ctx.productName}" on RFQ ${ctx.rfqNumber}.`);
       } else {
         const { error } = await supabase
           .from('product_quotes')
           .update({ status: 'Rejected', last_offer_by: 'supplier' })
           .eq('id', productQuoteId);
         if (error) throw error;
-        toast.success('Product rejected from this quote');
+        toast.success('Product removed from this RFQ');
+        if (ctx?.customerId) await notifyUser(ctx.customerId, `Supplier removed "${ctx.productName}" from RFQ ${ctx.rfqNumber}.`);
       }
 
       await fetchQuotes();
+      if (ctx?.quoteId) await finalizeQuoteIfComplete(ctx.quoteId);
     } catch (error) {
       console.error('Error responding to product quote:', error);
       toast.error('Failed to save your response');
     }
   };
 
-  // Finalize a quote into a Purchase Order. Only allowed once every line
-  // item has reached 'Accepted' — this is the moment the PO copy is created
-  // for both the customer and the supplier dashboard.
+  // Manual fallback kept for compatibility -- the negotiation UI now calls
+  // finalizeQuoteIfComplete automatically after every response instead of
+  // requiring an extra confirmation click.
   const acceptQuote = async (quoteId: string) => {
-    try {
-      const quote = quotes.find(q => q.id === quoteId);
-      if (!quote) return;
-
-      if (!isQuoteFullyAgreed(quote)) {
-        toast.error('All products must be agreed on before the PO can be generated');
-        return;
-      }
-
-      // Update quote status
-      const { error: quoteUpdateError } = await supabase
-        .from('quotes')
-        .update({ status: 'Accepted' })
-        .eq('id', quoteId);
-
-      if (quoteUpdateError) throw quoteUpdateError;
-
-      // Create order (auto-generates order_number via trigger)
-      const { error: orderError } = await supabase
-        .from('orders')
-        .insert([{
-          rfq_id: quote.rfq_id,
-          quote_id: quoteId,
-          po_number: `PO${Date.now().toString().slice(-6)}`,
-          delivery_address: 'Default delivery address',
-          delivery_date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        }] as any);
-
-      if (orderError) throw orderError;
-
-      // Update RFQ status
-      const { error: rfqUpdateError } = await supabase
-        .from('rfqs')
-        .update({ status: 'Order_Placed' })
-        .eq('id', quote.rfq_id);
-
-      if (rfqUpdateError) throw rfqUpdateError;
-
-      toast.success('All items agreed — Purchase Order created for both sides!');
-      await fetchRFQs();
-      await fetchQuotes();
-      await fetchOrders();
-    } catch (error) {
-      console.error('Error accepting quote:', error);
-      toast.error('Failed to accept quote');
+    const quote = quotes.find(q => q.id === quoteId);
+    if (!quote) return;
+    if (!isQuoteFullyAgreed(quote)) {
+      toast.error('All products must be agreed on before the PO can be generated');
+      return;
     }
+    await finalizeQuoteIfComplete(quoteId);
   };
 
   const rejectQuote = async (quoteId: string) => {
@@ -445,14 +543,29 @@ export const useSupabaseWorkflow = () => {
         return;
       }
 
+      const actor = isSupplier() ? 'supplier' : 'customer';
       const { error } = await supabase
         .from('rfqs')
-        .update({ status: 'Cancelled', cancelled_by: isSupplier() ? 'supplier' : 'customer' })
+        .update({ status: 'Cancelled', cancelled_by: actor })
         .eq('id', rfqId);
 
       if (error) throw error;
 
       toast.success('RFQ cancelled');
+
+      // Let the other side know, whichever direction this went.
+      if (actor === 'customer') {
+        const supplierIds = new Set(
+          quotes.filter(q => q.rfq_id === rfqId && q.supplier_id).map(q => q.supplier_id as string)
+        );
+        if (rfq.target_supplier_id) supplierIds.add(rfq.target_supplier_id);
+        for (const supplierId of supplierIds) {
+          await notifyUser(supplierId, `RFQ ${rfq.rfq_number} was cancelled by the customer.`);
+        }
+      } else {
+        await notifyUser(rfq.user_id, `RFQ ${rfq.rfq_number} was cancelled by the supplier.`);
+      }
+
       await fetchRFQs();
       await fetchQuotes();
     } catch (error) {
