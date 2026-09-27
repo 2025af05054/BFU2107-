@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { User, FileText, Package, Settings, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import ProfilePage from "./ProfilePage";
 import DashboardPage from "./DashboardPage";
 import OrderTrackingPage from "./OrderTrackingPage";
+import { useUserRole } from "@/hooks/useUserRole";
 
 type DashboardSection = "profile" | "rfq" | "orders";
 
@@ -15,6 +16,19 @@ const UserDashboard = () => {
   const [activeSection, setActiveSection] = useState<DashboardSection>("profile");
   const [productSearch, setProductSearch] = useState("");
   const navigate = useNavigate();
+  const { isSupplier, loading: roleLoading } = useUserRole();
+
+  // Suppliers have their own Supplier Dashboard (Profile, RFQ Responses,
+  // Order Management) with supplier-scoped data. This page's three tabs are
+  // built for customers -- "Create RFQ" doesn't apply to a supplier, and the
+  // RFQ/order lists here would otherwise duplicate the Supplier Dashboard
+  // with a confusingly different label. Send suppliers straight there. Wait
+  // for the role to resolve first so a supplier doesn't flash the customer
+  // view before redirecting.
+  if (roleLoading) return null;
+  if (isSupplier()) {
+    return <Navigate to="/supplier-dashboard" replace />;
+  }
 
   const handleProductSearch = () => {
     const query = productSearch.trim();

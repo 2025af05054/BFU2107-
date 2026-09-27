@@ -14,6 +14,10 @@ interface RFQSummary {
   created_at: string;
   status: string;
   product_count: number;
+  // Whether this supplier has already submitted a quote for this RFQ --
+  // decides which single action button to show (Create Quote vs View
+  // Details), instead of always offering both.
+  hasQuoted: boolean;
 }
 
 const SupplierDashboard = () => {
@@ -48,22 +52,27 @@ const SupplierDashboard = () => {
 
       if (rfqError) throw rfqError;
 
+      // Which of these RFQs this supplier has already quoted on, so the
+      // list shows one correct action per RFQ instead of both buttons
+      // regardless of state.
+      const { data: quotesData } = await supabase
+        .from('quotes')
+        .select('id, rfq_id')
+        .eq('supplier_id', user.id);
+
+      const quotedRfqIds = new Set((quotesData || []).map(q => q.rfq_id));
+
       // Process RFQ data
       const processedRFQs = rfqData?.map(rfq => ({
         id: rfq.id,
         rfq_number: rfq.rfq_number,
         created_at: rfq.created_at,
         status: rfq.status,
-        product_count: rfq.products?.length || 0
+        product_count: rfq.products?.length || 0,
+        hasQuoted: quotedRfqIds.has(rfq.id)
       })) || [];
 
       setRfqs(processedRFQs);
-
-      // Calculate stats
-      const { data: quotesData } = await supabase
-        .from('quotes')
-        .select('id, status')
-        .eq('supplier_id', user.id);
 
       const submittedQuotes = quotesData?.length || 0;
       const pendingQuotes = processedRFQs.length - submittedQuotes;
@@ -193,13 +202,19 @@ const SupplierDashboard = () => {
                         </span>
                       </div>
                     </div>
+                    {/* One button per RFQ, not both: once a quote exists (or
+                        the RFQ is closed) there's nothing left to "create" --
+                        View Details is where negotiation/status lives now. */}
                     <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm" asChild>
-                        <Link to={`/rfq/${rfq.id}`}>View Details</Link>
-                      </Button>
-                      <Button size="sm" asChild>
-                        <Link to={`/quote/create/${rfq.id}`}>Create Quote</Link>
-                      </Button>
+                      {rfq.hasQuoted || ['Cancelled', 'Rejected', 'Completed'].includes(rfq.status) ? (
+                        <Button variant="outline" size="sm" asChild>
+                          <Link to={`/rfq/${rfq.id}`}>View Details</Link>
+                        </Button>
+                      ) : (
+                        <Button size="sm" asChild>
+                          <Link to={`/quote/create/${rfq.id}`}>Create Quote</Link>
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))}

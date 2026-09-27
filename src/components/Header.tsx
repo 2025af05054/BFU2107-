@@ -53,11 +53,12 @@ const Header = () => {
       );
     }
 
-    // Supplier items
+    // Supplier items. "RFQ Responses" is not listed separately here -- it's
+    // already one of the sidebar tabs inside Supplier Dashboard, and having
+    // both was two entry points for the same job.
     if (isSupplier()) {
       items.push(
-        { name: "Supplier Dashboard", path: "/supplier-dashboard" },
-        { name: "RFQ Responses", path: "/rfq-responses" }
+        { name: "Supplier Dashboard", path: "/supplier-dashboard" }
       );
     }
 
