@@ -20,9 +20,11 @@ interface SupplierProduct {
   id: string;
   name: string;
   description: string | null;
+  // Fixed Price is the only price customers ever see. price_min is the
+  // supplier/admin's own private floor reference for negotiation -- never
+  // shown to customers.
   price: number | null;
   price_min: number | null;
-  price_max: number | null; 
   category: string | null;
   category_id: string | null;
   images: string[] | null;
@@ -45,8 +47,8 @@ interface SupplierProduct {
 interface ProductFormData {
   name: string;
   description: string;
+  price: string;
   price_min: string;
-  price_max: string;
   category_id: string;
   supplier_name: string;
 }
@@ -63,8 +65,8 @@ const AdminProductsPage = () => {
   const [formData, setFormData] = useState<ProductFormData>({
     name: '',
     description: '',
+    price: '',
     price_min: '',
-    price_max: '',
     category_id: '',
     supplier_name: ''
   });
@@ -86,7 +88,6 @@ const AdminProductsPage = () => {
           description,
           price,
           price_min,
-          price_max,
           category,
           category_id,
           images,
@@ -114,13 +115,13 @@ const AdminProductsPage = () => {
 
   // Create product mutation
   const createProductMutation = useMutation({
-    mutationFn: async (productData: { 
-      name: string; 
-      description: string | null; 
-      price_min: number | null; 
-      price_max: number | null; 
-      category_id: string; 
-      supplier_name: string; 
+    mutationFn: async (productData: {
+      name: string;
+      description: string | null;
+      price: number | null;
+      price_min: number | null;
+      category_id: string;
+      supplier_name: string;
       images?: string[];
     }) => {
       // Upload images first if any
@@ -178,14 +179,14 @@ const AdminProductsPage = () => {
 
   // Update product mutation
   const updateProductMutation = useMutation({
-    mutationFn: async ({ id, ...productData }: { 
+    mutationFn: async ({ id, ...productData }: {
       id: string;
-      name?: string; 
-      description?: string | null; 
-      price_min?: number | null; 
-      price_max?: number | null; 
-      category_id?: string; 
-      supplier_name?: string; 
+      name?: string;
+      description?: string | null;
+      price?: number | null;
+      price_min?: number | null;
+      category_id?: string;
+      supplier_name?: string;
       images?: string[];
     }) => {
       // Upload new images if any
@@ -362,8 +363,8 @@ const AdminProductsPage = () => {
     setFormData({
       name: '',
       description: '',
+      price: '',
       price_min: '',
-      price_max: '',
       category_id: '',
       supplier_name: ''
     });
@@ -377,8 +378,8 @@ const AdminProductsPage = () => {
     setFormData({
       name: product.name,
       description: product.description || '',
+      price: product.price?.toString() || '',
       price_min: product.price_min?.toString() || '',
-      price_max: product.price_max?.toString() || '',
       category_id: product.category_id || '',
       supplier_name: product.suppliers?.company_name || ''
     });
@@ -424,8 +425,8 @@ const AdminProductsPage = () => {
     const productData = {
       name: formData.name.trim(),
       description: formData.description.trim() || null,
+      price: formData.price ? parseFloat(formData.price) : null,
       price_min: formData.price_min ? parseFloat(formData.price_min) : null,
-      price_max: formData.price_max ? parseFloat(formData.price_max) : null,
       category_id: formData.category_id,
       supplier_name: formData.supplier_name.trim()
     };
@@ -524,7 +525,22 @@ const AdminProductsPage = () => {
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
-                      <Label htmlFor="price_min">Min Price (₹)</Label>
+                      <Label htmlFor="price">Fixed Price (₹)</Label>
+                      <Input
+                        id="price"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.price}
+                        onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
+                        placeholder="0.00"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Shown to customers. This is what they see and base their RFQ on.
+                      </p>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="price_min">Floor Price (₹)</Label>
                       <Input
                         id="price_min"
                         type="number"
@@ -532,20 +548,11 @@ const AdminProductsPage = () => {
                         min="0"
                         value={formData.price_min}
                         onChange={(e) => setFormData(prev => ({ ...prev, price_min: e.target.value }))}
-                        placeholder="Min price"
+                        placeholder="0.00"
                       />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="price_max">Max Price (₹)</Label>
-                      <Input
-                        id="price_max"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={formData.price_max}
-                        onChange={(e) => setFormData(prev => ({ ...prev, price_max: e.target.value }))}
-                        placeholder="Max price"
-                      />
+                      <p className="text-xs text-muted-foreground">
+                        Supplier's private negotiation reference. Customers never see this.
+                      </p>
                     </div>
                   </div>
                   
@@ -677,7 +684,7 @@ const AdminProductsPage = () => {
                   <TableHead>Product</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead>Supplier</TableHead>
-                  <TableHead>Price Range</TableHead>
+                  <TableHead>Price</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Created</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -724,12 +731,15 @@ const AdminProductsPage = () => {
                     </TableCell>
                     <TableCell>{product.supplier_name || product.suppliers?.company_name || 'No supplier'}</TableCell>
                     <TableCell>
-                      {product.price_min && product.price_max ? (
-                        `₹${product.price_min.toLocaleString()} - ₹${product.price_max.toLocaleString()}`
-                      ) : product.price ? (
+                      {product.price ? (
                         `₹${product.price.toLocaleString()}`
                       ) : (
                         'Not set'
+                      )}
+                      {product.price_min !== null && (
+                        <div className="text-xs text-muted-foreground">
+                          floor: ₹{product.price_min.toLocaleString()}
+                        </div>
                       )}
                     </TableCell>
                     <TableCell>

@@ -14,7 +14,12 @@ import { useSuppliersDirect } from '@/hooks/useSuppliers';
 interface ProductRow {
   name: string;
   brand: string;
-  price_max: number;
+  // Fixed Price: the only price shown to customers. For backward
+  // compatibility with existing CSVs built for the old min/max format, a
+  // "Price Max" column is accepted as this value if "Price" isn't present.
+  price: number;
+  // Floor Price: supplier's private negotiation reference, never shown to
+  // customers. Accepts a legacy "Price Min" column header.
   price_min: number;
   category: string;
   subcategory: string;
@@ -55,8 +60,10 @@ export default function AdminBulkProductImport() {
       products.push({
         name: row.name || '',
         brand: row.brand || '',
-        price_max: parseFloat(row['price max'] || row.price_max || '0'),
-        price_min: parseFloat(row['price min'] || row.price_min || '0'),
+        // "Price" is the current column name; "Price Max" is accepted for
+        // backward compatibility with CSVs built for the old min/max model.
+        price: parseFloat(row.price || row['price max'] || row.price_max || '0'),
+        price_min: parseFloat(row['price min'] || row.price_min || row['floor price'] || row.floor_price || '0'),
         category: row.category || 'Uncategorized',
         subcategory: row.subcategory || '',
         quantity: row.quantity || '',
@@ -135,9 +142,8 @@ export default function AdminBulkProductImport() {
             supplier_id: defaultSupplier,
             supplier_name: supplierName,
             description: description || null,
-            price: product.price_min || null,
+            price: product.price || null,
             price_min: product.price_min || null,
-            price_max: product.price_max || null,
             category: product.category || 'Uncategorized',
             status: 'pending'
           };
@@ -202,7 +208,7 @@ export default function AdminBulkProductImport() {
             Bulk Product Import
           </CardTitle>
           <CardDescription>
-            Upload a CSV file with product data. Expected columns: Name, Brand, Price Max, Price Min, Category, SubCategory, Quantity, Description, BreadCrumbs
+            Upload a CSV file with product data. Expected columns: Name, Brand, Price, Floor Price, Category, SubCategory, Quantity, Description, BreadCrumbs. "Price" is shown to customers; "Floor Price" is the supplier's private negotiation reference. (Older CSVs using "Price Max"/"Price Min" are still accepted.)
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -329,8 +335,8 @@ export default function AdminBulkProductImport() {
             <CardContent className="pt-6">
               <h4 className="font-medium mb-2">CSV Format Example:</h4>
               <pre className="text-xs overflow-x-auto bg-background p-3 rounded">
-{`Name,Brand,Price max,Price min,Category,SubCategory,Quantity,Description,BreadCrumbs
-Badam (Almonds),Premia,451,329,Grocery,Dry Fruits,500 gm,Premium quality,Grocery > Dry Fruits`}
+{`Name,Brand,Price,Floor Price,Category,SubCategory,Quantity,Description,BreadCrumbs
+Badam (Almonds),Premia,451,410,Grocery,Dry Fruits,500 gm,Premium quality,Grocery > Dry Fruits`}
               </pre>
             </CardContent>
           </Card>
