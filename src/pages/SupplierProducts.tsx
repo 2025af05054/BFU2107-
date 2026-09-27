@@ -14,7 +14,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCategoryTree, Category } from "@/hooks/useCategories";
 import { formatCurrency } from "@/lib/currency";
 import { toast } from "sonner";
-import { Plus, Edit, Trash2, Upload, Image, IndianRupee, Package, AlertCircle, CheckCircle, Sparkles, Boxes } from "lucide-react";
+import { Plus, Edit, Trash2, Upload, Image, IndianRupee, Package, AlertCircle, CheckCircle, Sparkles, Boxes, AlertTriangle } from "lucide-react";
 
 const generateProductCode = () => `BFU${Math.floor(100000 + Math.random() * 900000)}`;
 
@@ -47,6 +47,11 @@ const SupplierProducts = () => {
   const { user } = useAuth();
   const { data: categoryTree } = useCategoryTree();
   const [products, setProducts] = useState<SupplierProduct[]>([]);
+  // Quantity already committed to purchase orders across ALL of this
+  // supplier's RFQs, keyed by supplier_products.id. Used to compute each
+  // catalog item's real remaining stock (stock_available - safety_stock -
+  // committed), not just the raw number the supplier last typed in.
+  const [committedById, setCommittedById] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<SupplierProduct | null>(null);
@@ -82,11 +87,60 @@ const SupplierProducts = () => {
 
       if (error) throw error;
       setProducts(data || []);
+      await fetchCommittedQuantities(data || []);
     } catch (error) {
       console.error('Error fetching products:', error);
       toast.error("Failed to load products");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Real remaining stock isn't just what the supplier last typed in --
+  // every purchase order placed against a catalog item eats into it. Sum
+  // quantities from all RFQ lines tied to each tracked catalog item where
+  // an order (PO) actually exists, across every RFQ this supplier has
+  // quoted, not just one.
+  const fetchCommittedQuantities = async (catalogProducts: SupplierProduct[]) => {
+    if (!user) return;
+    const trackedIds = catalogProducts.filter(p => p.stock_available !== null).map(p => p.id);
+    if (trackedIds.length === 0) {
+      setCommittedById({});
+      return;
+    }
+
+    try {
+      const { data: orderRows, error: orderError } = await supabase
+        .from('orders')
+        .select('quotes!inner(supplier_id, rfq_id)')
+        .eq('quotes.supplier_id', user.id);
+      if (orderError) throw orderError;
+
+      const committedRfqIds = [...new Set(
+        (orderRows || [])
+          .map((r: any) => r.quotes?.rfq_id as string | undefined)
+          .filter((rfqId): rfqId is string => !!rfqId)
+      )];
+      if (committedRfqIds.length === 0) {
+        setCommittedById({});
+        return;
+      }
+
+      const { data: committedProducts, error: productsError } = await supabase
+        .from('products')
+        .select('source_product_id, quantity')
+        .in('rfq_id', committedRfqIds)
+        .in('source_product_id', trackedIds);
+      if (productsError) throw productsError;
+
+      const totals: Record<string, number> = {};
+      (committedProducts || []).forEach(p => {
+        if (!p.source_product_id) return;
+        totals[p.source_product_id] = (totals[p.source_product_id] || 0) + p.quantity;
+      });
+      setCommittedById(totals);
+    } catch (error) {
+      console.error('Error computing committed stock:', error);
     }
   };
 
@@ -499,6 +553,20 @@ const SupplierProducts = () => {
             </Dialog>
           </div>
 
+          {(() => {
+            const outOfStockCount = products.filter(p =>
+              p.stock_available !== null &&
+              (p.stock_available - p.safety_stock - (committedById[p.id] || 0)) < 0
+            ).length;
+            if (outOfStockCount === 0) return null;
+            return (
+              <div className="flex items-center gap-2 mb-6 p-3 bg-red-50 text-red-700 rounded-lg text-sm font-medium">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                {outOfStockCount} product{outOfStockCount > 1 ? 's are' : ' is'} out of stock — check the highlighted items below and reorder.
+              </div>
+            );
+          })()}
+
           {/* Products Grid */}
           {products.length === 0 ? (
             <Card>
@@ -539,6 +607,13 @@ const SupplierProducts = () => {
                       <Badge className="absolute bottom-2 right-2">
                         <Image className="w-3 h-3 mr-1" />
                         +{product.images.length - 1}
+                      </Badge>
+                    )}
+                    {product.stock_available !== null &&
+                      (product.stock_available - product.safety_stock - (committedById[product.id] || 0)) < 0 && (
+                      <Badge variant="destructive" className="absolute bottom-2 left-2">
+                        <AlertTriangle className="w-3 h-3 mr-1" />
+                        Out of Stock
                       </Badge>
                     )}
                     <Badge
@@ -621,16 +696,33 @@ const SupplierProducts = () => {
                       )}
                     </div>
 
-                    {product.stock_available !== null && (
-                      <div className="flex items-center gap-1 text-xs">
-                        <Boxes className="w-3.5 h-3.5 text-muted-foreground" />
-                        <span className="text-muted-foreground">Stock:</span>
-                        <span className="font-medium">{product.stock_available}</span>
-                        {product.safety_stock > 0 && (
-                          <span className="text-muted-foreground">(safety: {product.safety_stock})</span>
-                        )}
-                      </div>
-                    )}
+                    {product.stock_available !== null && (() => {
+                      const committed = committedById[product.id] || 0;
+                      const remaining = product.stock_available - product.safety_stock - committed;
+                      const isOutOfStock = remaining < 0;
+                      return (
+                        <div className={`flex items-center gap-1.5 text-xs rounded-md px-2 py-1 w-fit ${
+                          isOutOfStock ? 'bg-red-50 text-red-700 font-medium' : ''
+                        }`}>
+                          {isOutOfStock ? (
+                            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                          ) : (
+                            <Boxes className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                          )}
+                          {isOutOfStock ? (
+                            <span>Out of Stock ({remaining} Qty) — reorder needed</span>
+                          ) : (
+                            <>
+                              <span className="text-muted-foreground">Stock:</span>
+                              <span className="font-medium">{remaining}</span>
+                              {committed > 0 && (
+                                <span className="text-muted-foreground">({committed} committed)</span>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     <div className="text-xs text-muted-foreground pt-2 border-t">
                       Added {new Date(product.created_at).toLocaleDateString()}
