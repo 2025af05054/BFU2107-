@@ -14,7 +14,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCategoryTree, Category } from "@/hooks/useCategories";
 import { formatCurrency } from "@/lib/currency";
 import { toast } from "sonner";
-import { Plus, Edit, Trash2, Upload, Image, IndianRupee, Package, AlertCircle, CheckCircle, Sparkles } from "lucide-react";
+import { Plus, Edit, Trash2, Upload, Image, IndianRupee, Package, AlertCircle, CheckCircle, Sparkles, Boxes } from "lucide-react";
 
 const generateProductCode = () => `BFU${Math.floor(100000 + Math.random() * 900000)}`;
 
@@ -35,6 +35,11 @@ interface SupplierProduct {
   status: string;
   approved_by: string | null;
   approved_at: string | null;
+  // Available-to-Promise inventory: stock_available is on-hand quantity
+  // (null = not tracked); safety_stock is a buffer never to be promised
+  // away. Both are supplier-only -- never shown to customers.
+  stock_available: number | null;
+  safety_stock: number;
 }
 
 
@@ -56,7 +61,9 @@ const SupplierProducts = () => {
     price: '',
     price_min: '',
     price_max: '',
-    images: [] as string[]
+    images: [] as string[],
+    stock_available: '',
+    safety_stock: ''
   });
 
   useEffect(() => {
@@ -114,6 +121,8 @@ const SupplierProducts = () => {
         price_min: formData.price_min ? parseFloat(formData.price_min) : null,
         price_max: formData.price_max ? parseFloat(formData.price_max) : null,
         images: formData.images.length > 0 ? formData.images : null,
+        stock_available: formData.stock_available ? parseInt(formData.stock_available, 10) : null,
+        safety_stock: formData.safety_stock ? parseInt(formData.safety_stock, 10) : 0,
         supplier_id: user.id,
         supplier_name: user.email || 'Unknown Supplier'
       };
@@ -226,7 +235,9 @@ const SupplierProducts = () => {
       price: product.price?.toString() || '',
       price_min: product.price_min?.toString() || '',
       price_max: product.price_max?.toString() || '',
-      images: product.images || []
+      images: product.images || [],
+      stock_available: product.stock_available?.toString() || '',
+      safety_stock: product.safety_stock?.toString() || ''
     });
     setIsDialogOpen(true);
   };
@@ -257,7 +268,9 @@ const SupplierProducts = () => {
       price: '',
       price_min: '',
       price_max: '',
-      images: []
+      images: [],
+      stock_available: '',
+      safety_stock: ''
     });
     setEditingProduct(null);
   };
@@ -391,6 +404,37 @@ const SupplierProducts = () => {
                         onChange={(e) => setFormData({ ...formData, price_max: e.target.value })}
                         placeholder="0.00"
                       />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="stock_available">Stock Available</Label>
+                      <Input
+                        id="stock_available"
+                        type="number"
+                        min="0"
+                        value={formData.stock_available}
+                        onChange={(e) => setFormData({ ...formData, stock_available: e.target.value })}
+                        placeholder="e.g. 100"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Leave blank if you don't want to track stock for this item.
+                      </p>
+                    </div>
+                    <div>
+                      <Label htmlFor="safety_stock">Safety Stock</Label>
+                      <Input
+                        id="safety_stock"
+                        type="number"
+                        min="0"
+                        value={formData.safety_stock}
+                        onChange={(e) => setFormData({ ...formData, safety_stock: e.target.value })}
+                        placeholder="0"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        A reserve you never want quoted away, even if it's on hand.
+                      </p>
                     </div>
                   </div>
 
@@ -576,6 +620,17 @@ const SupplierProducts = () => {
                         <span className="text-muted-foreground">Price on request</span>
                       )}
                     </div>
+
+                    {product.stock_available !== null && (
+                      <div className="flex items-center gap-1 text-xs">
+                        <Boxes className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span className="text-muted-foreground">Stock:</span>
+                        <span className="font-medium">{product.stock_available}</span>
+                        {product.safety_stock > 0 && (
+                          <span className="text-muted-foreground">(safety: {product.safety_stock})</span>
+                        )}
+                      </div>
+                    )}
 
                     <div className="text-xs text-muted-foreground pt-2 border-t">
                       Added {new Date(product.created_at).toLocaleDateString()}

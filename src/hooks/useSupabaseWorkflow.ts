@@ -29,6 +29,10 @@ export interface DatabaseProduct {
   target_price?: number;
   target_lead_time?: number;
   images?: string[];
+  // Links back to the supplier's catalog item this RFQ line came from, so
+  // the supplier can check their own stock against it while quoting. Only
+  // set for "identified" products added from a portfolio/catalog page.
+  source_product_id?: string | null;
 }
 
 export interface DatabaseQuote {

@@ -167,6 +167,7 @@ const RFQPage = () => {
           ...(p.targetPrice && { target_price: p.targetPrice }),
           ...(p.targetLeadTime && { target_lead_time: p.targetLeadTime }),
           ...(p.images && p.images.length > 0 && { images: p.images }),
+          ...(p.sourceProductId && { source_product_id: p.sourceProductId }),
         })),
         targetSupplierId,
       };

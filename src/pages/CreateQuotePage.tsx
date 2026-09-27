@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Loader2, Send } from "lucide-react";
+import { ArrowLeft, Loader2, Send, Boxes, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -18,6 +18,16 @@ interface RFQProduct {
   quantity: number;
   target_price: number | null;
   target_lead_time: number | null;
+  source_product_id: string | null;
+}
+
+// Available-to-Promise for one catalog item: on-hand stock, minus a safety
+// buffer, minus what's already committed to *other* customers' purchase
+// orders. Supplier-only -- this never reaches the customer-facing side.
+interface StockInfo {
+  stockAvailable: number | null;
+  safetyStock: number;
+  committedElsewhere: number;
 }
 
 interface RFQ {
@@ -44,18 +54,19 @@ const CreateQuotePage = () => {
     new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
   );
   const [lineItems, setLineItems] = useState<Record<string, LineItem>>({});
+  const [stockBySourceId, setStockBySourceId] = useState<Record<string, StockInfo>>({});
 
   useEffect(() => {
     fetchRFQ();
   }, [id]);
 
   const fetchRFQ = async () => {
-    if (!id) return;
+    if (!id || !user) return;
 
     try {
       const { data, error } = await supabase
         .from("rfqs")
-        .select("id, rfq_number, user_id, products(id, name, description, quantity, target_price, target_lead_time)")
+        .select("id, rfq_number, user_id, products(id, name, description, quantity, target_price, target_lead_time, source_product_id)")
         .eq("id", id)
         .single();
 
@@ -72,11 +83,77 @@ const CreateQuotePage = () => {
         };
       });
       setLineItems(initialItems);
+
+      await fetchStockInfo((data.products || []) as RFQProduct[], data.id);
     } catch (error) {
       console.error("Error fetching RFQ:", error);
       toast.error("Failed to load RFQ");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Available-to-Promise check, supplier-side only. For each RFQ line that
+  // came from this supplier's own catalog, look up their declared stock and
+  // how much of it is already committed to OTHER customers' purchase
+  // orders, so quoting a quantity that would go negative is visible before
+  // they commit to it -- their call whether to quote it anyway or drop it.
+  const fetchStockInfo = async (products: RFQProduct[], currentRfqId: string) => {
+    if (!user) return;
+    const sourceIds = [...new Set(products.map(p => p.source_product_id).filter((x): x is string => !!x))];
+    if (sourceIds.length === 0) return;
+
+    try {
+      const { data: catalogRows, error: catalogError } = await supabase
+        .from("supplier_products")
+        .select("id, stock_available, safety_stock")
+        .in("id", sourceIds)
+        .eq("supplier_id", user.id);
+      if (catalogError) throw catalogError;
+
+      // Every PO this supplier already has, and which RFQ each belongs to.
+      const { data: orderRows, error: orderError } = await supabase
+        .from("orders")
+        .select("quotes!inner(supplier_id, rfq_id)")
+        .eq("quotes.supplier_id", user.id);
+      if (orderError) throw orderError;
+
+      const committedRfqIds = [...new Set(
+        (orderRows || [])
+          .map((r: any) => r.quotes?.rfq_id as string | undefined)
+          .filter((rfqId): rfqId is string => !!rfqId && rfqId !== currentRfqId)
+      )];
+
+      let committedProducts: { source_product_id: string | null; quantity: number }[] = [];
+      if (committedRfqIds.length > 0) {
+        const { data, error } = await supabase
+          .from("products")
+          .select("source_product_id, quantity")
+          .in("rfq_id", committedRfqIds)
+          .in("source_product_id", sourceIds);
+        if (error) throw error;
+        committedProducts = data || [];
+      }
+
+      const committedBySourceId: Record<string, number> = {};
+      committedProducts.forEach(p => {
+        if (!p.source_product_id) return;
+        committedBySourceId[p.source_product_id] = (committedBySourceId[p.source_product_id] || 0) + p.quantity;
+      });
+
+      const info: Record<string, StockInfo> = {};
+      (catalogRows || []).forEach(row => {
+        info[row.id] = {
+          stockAvailable: row.stock_available,
+          safetyStock: row.safety_stock,
+          committedElsewhere: committedBySourceId[row.id] || 0,
+        };
+      });
+      setStockBySourceId(info);
+    } catch (error) {
+      // Stock visibility is a nice-to-have, not a blocker -- don't stop the
+      // supplier from quoting if this lookup fails.
+      console.error("Error checking stock availability:", error);
     }
   };
 
@@ -186,7 +263,13 @@ const CreateQuotePage = () => {
       <p className="text-muted-foreground mb-8">For RFQ {rfq.rfq_number}</p>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {rfq.products.map((product, index) => (
+        {rfq.products.map((product, index) => {
+          const stock = product.source_product_id ? stockBySourceId[product.source_product_id] : undefined;
+          const remaining = stock && stock.stockAvailable !== null
+            ? stock.stockAvailable - stock.safetyStock - stock.committedElsewhere - product.quantity
+            : null;
+
+          return (
           <Card key={product.id}>
             <CardHeader>
               <CardTitle className="text-lg">
@@ -195,6 +278,28 @@ const CreateQuotePage = () => {
               <CardDescription>
                 {product.description} • Quantity: {product.quantity}
               </CardDescription>
+              {/* Supplier-only stock check -- the customer never sees this.
+                  Purely informational: quoting anyway is still allowed. */}
+              {stock && stock.stockAvailable !== null && (
+                <div className={`flex items-center gap-1.5 text-xs mt-2 rounded-md px-2 py-1.5 w-fit ${
+                  remaining !== null && remaining < 0
+                    ? 'bg-red-50 text-red-700 font-medium'
+                    : 'bg-muted text-muted-foreground'
+                }`}>
+                  {remaining !== null && remaining < 0 ? (
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  ) : (
+                    <Boxes className="w-3.5 h-3.5 shrink-0" />
+                  )}
+                  <span>
+                    Stock: {stock.stockAvailable}
+                    {stock.safetyStock > 0 && ` (safety: ${stock.safetyStock})`}
+                    {stock.committedElsewhere > 0 && ` • Committed to other POs: ${stock.committedElsewhere}`}
+                    {' • Remaining after this quote: '}
+                    <strong>{remaining}</strong>
+                  </span>
+                </div>
+              )}
             </CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
@@ -230,7 +335,8 @@ const CreateQuotePage = () => {
               </div>
             </CardContent>
           </Card>
-        ))}
+          );
+        })}
 
         <Card>
           <CardHeader>

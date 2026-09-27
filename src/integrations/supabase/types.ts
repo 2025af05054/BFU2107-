@@ -280,6 +280,7 @@ export type Database = {
           name: string
           quantity: number
           rfq_id: string
+          source_product_id: string | null
           target_lead_time: number | null
           target_price: number | null
           type: string
@@ -293,6 +294,7 @@ export type Database = {
           name: string
           quantity?: number
           rfq_id: string
+          source_product_id?: string | null
           target_lead_time?: number | null
           target_price?: number | null
           type: string
@@ -306,6 +308,7 @@ export type Database = {
           name?: string
           quantity?: number
           rfq_id?: string
+          source_product_id?: string | null
           target_lead_time?: number | null
           target_price?: number | null
           type?: string
@@ -316,6 +319,13 @@ export type Database = {
             columns: ["rfq_id"]
             isOneToOne: false
             referencedRelation: "rfqs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_source_product_id_fkey"
+            columns: ["source_product_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_products"
             referencedColumns: ["id"]
           },
         ]
@@ -470,8 +480,10 @@ export type Database = {
           price: number | null
           price_max: number | null
           price_min: number | null
+          safety_stock: number
           sku: string | null
           status: string
+          stock_available: number | null
           supplier_id: string | null
           supplier_name: string | null
           updated_at: string
@@ -489,8 +501,10 @@ export type Database = {
           price?: number | null
           price_max?: number | null
           price_min?: number | null
+          safety_stock?: number
           sku?: string | null
           status?: string
+          stock_available?: number | null
           supplier_id?: string | null
           supplier_name?: string | null
           updated_at?: string
@@ -508,8 +522,10 @@ export type Database = {
           price?: number | null
           price_max?: number | null
           price_min?: number | null
+          safety_stock?: number
           sku?: string | null
           status?: string
+          stock_available?: number | null
           supplier_id?: string | null
           supplier_name?: string | null
           updated_at?: string
