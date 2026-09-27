@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, CheckCircle, X, MessageSquare, Calendar, Loader2, Handshake, Printer, Trash2, FileCheck, Clock } from "lucide-react";
+import { ArrowLeft, CheckCircle, X, MessageSquare, Calendar, Loader2, Handshake, Printer, Trash2, FileCheck, Clock, QrCode, IndianRupee } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -47,6 +47,8 @@ const QuoteDetailsPage = () => {
     submitPurchaseOrder,
     retryOrderCreation,
     acknowledgePO,
+    declarePaymentMade,
+    confirmPaymentReceived,
     loading,
   } = useSupabaseWorkflow();
   const { user } = useAuth();
@@ -62,6 +64,9 @@ const QuoteDetailsPage = () => {
   // line, not the catalog item) for easy lookup while rendering. Never
   // shown to the customer -- fetched only when the viewer is the supplier.
   const [priceRefByProductId, setPriceRefByProductId] = useState<Record<string, { listedPrice: number | null; floorPrice: number | null }>>({});
+  // Supplier's payment QR code image, fetched once a PO exists so the
+  // customer has something to scan and pay with.
+  const [supplierPaymentQrUrl, setSupplierPaymentQrUrl] = useState<string | null>(null);
 
   let quote = quotes.find(q => q.id === id);
   const rfq = quote ? rfqs.find(r => r.id === quote.rfq_id) : rfqs.find(r => r.id === id);
@@ -97,6 +102,21 @@ const QuoteDetailsPage = () => {
     fetchPriceRef();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rfq?.id, user?.id]);
+
+  useEffect(() => {
+    const fetchSupplierQr = async () => {
+      if (!quote?.supplier_id) return;
+      const { data, error } = await supabase
+        .from('suppliers')
+        .select('payment_qr_url')
+        .eq('id', quote.supplier_id)
+        .single();
+      if (error || !data) return;
+      setSupplierPaymentQrUrl(data.payment_qr_url);
+    };
+    fetchSupplierQr();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quote?.supplier_id]);
 
   if (loading) {
     return (
@@ -261,6 +281,18 @@ const QuoteDetailsPage = () => {
   const handleAcknowledgePO = async () => {
     if (!order) return;
     await acknowledgePO(order.id);
+  };
+
+  const handleDeclarePaymentMade = async () => {
+    if (!order) return;
+    if (!window.confirm("Confirm you've paid the supplier? They'll be notified to verify and confirm receipt.")) return;
+    await declarePaymentMade(order.id);
+  };
+
+  const handleConfirmPaymentReceived = async () => {
+    if (!order) return;
+    if (!window.confirm('Confirm that payment for this PO has actually been received?')) return;
+    await confirmPaymentReceived(order.id);
   };
 
   // Whether "it's your turn" to respond to a given line item: you can act
@@ -679,6 +711,67 @@ const QuoteDetailsPage = () => {
                         Waiting for the supplier to acknowledge this PO.
                       </p>
                     )
+                  )}
+
+                  {/* Payment: no gateway on this platform -- the customer
+                      scans the supplier's own QR and pays externally, then
+                      self-declares; the supplier gives the final
+                      confirmation once the money actually lands. Only shown
+                      once the PO is acknowledged, so there's something firm
+                      to pay against. */}
+                  {order.status === 'PO Accepted' && (
+                    <div className="pt-2 border-t print:hidden">
+                      {order.payment_status === 'Done' ? (
+                        <div className="flex items-center justify-center p-3 bg-green-50 rounded-lg mt-3">
+                          <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
+                          <span className="text-green-800 font-medium">Payment Confirmed</span>
+                        </div>
+                      ) : isMine ? (
+                        <div className="mt-3 space-y-2 text-center">
+                          <p className="text-sm text-muted-foreground">
+                            {order.payment_status === 'Partial'
+                              ? 'Customer says they\'ve paid. Confirm once you\'ve verified receipt.'
+                              : 'Waiting for the customer to pay and confirm.'}
+                          </p>
+                          {order.payment_status === 'Partial' && (
+                            <Button variant="hero" className="w-full" onClick={handleConfirmPaymentReceived}>
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                              Confirm Payment Received
+                            </Button>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="mt-3 space-y-3 text-center">
+                          <p className="text-sm font-medium flex items-center justify-center gap-1">
+                            <QrCode className="w-4 h-4" /> Scan to Pay
+                          </p>
+                          {supplierPaymentQrUrl ? (
+                            <img
+                              src={supplierPaymentQrUrl}
+                              alt="Supplier payment QR code"
+                              className="w-48 h-48 object-contain rounded-md border bg-white mx-auto"
+                            />
+                          ) : (
+                            <p className="text-sm text-muted-foreground">
+                              The supplier hasn't set up a payment QR code yet. Contact them directly to arrange payment.
+                            </p>
+                          )}
+                          <p className="text-sm text-muted-foreground flex items-center justify-center gap-1">
+                            Amount: <IndianRupee className="w-3.5 h-3.5" />{quote.total_amount.toLocaleString()}
+                          </p>
+                          {order.payment_status === 'Partial' ? (
+                            <p className="text-sm text-muted-foreground italic">
+                              Marked as paid — waiting for the supplier to confirm.
+                            </p>
+                          ) : (
+                            <Button variant="hero" className="w-full" onClick={handleDeclarePaymentMade}>
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                              I've Paid
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   )}
 
                   <p className="text-sm text-muted-foreground text-center">

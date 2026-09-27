@@ -555,6 +555,8 @@ export type Database = {
           created_at: string
           id: string
           logo_url: string | null
+          negotiation_enabled: boolean
+          payment_qr_url: string | null
           updated_at: string
           username: string | null
         }
@@ -565,6 +567,8 @@ export type Database = {
           created_at?: string
           id: string
           logo_url?: string | null
+          negotiation_enabled?: boolean
+          payment_qr_url?: string | null
           updated_at?: string
           username?: string | null
         }
@@ -575,6 +579,8 @@ export type Database = {
           created_at?: string
           id?: string
           logo_url?: string | null
+          negotiation_enabled?: boolean
+          payment_qr_url?: string | null
           updated_at?: string
           username?: string | null
         }

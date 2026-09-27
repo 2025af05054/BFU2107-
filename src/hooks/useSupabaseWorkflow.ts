@@ -116,6 +116,47 @@ const notifyUser = async (userId: string, message: string, link?: string) => {
   }
 };
 
+// When an RFQ is targeted at a supplier who has negotiation turned OFF, and
+// every line item is a catalog product from that same supplier with a
+// Fixed Price set, skip the whole negotiation pipeline: the quote,
+// product_quotes, and order are all created pre-Accepted in one shot.
+//
+// This calls a server-side edge function (service role) instead of
+// inserting the rows directly from the client: RLS only allows *suppliers*
+// to insert quotes/product_quotes, and even setting that aside, a client
+// that could insert an already-"Accepted" quote for an arbitrary RFQ would
+// be a way to fabricate confirmed orders. The function re-derives and
+// checks every condition (RFQ ownership, negotiation setting, catalog
+// prices) itself before writing anything -- the client only controls which
+// RFQ to try this for, never the outcome. Returns true if the fast path
+// applied; false means the caller falls back to the normal flow (supplier
+// creates a quote manually).
+const tryAutoConfirmFixedPriceOrder = async (rfqId: string): Promise<boolean> => {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return false;
+
+    const response = await fetch(
+      `https://fbgioxhbuullokzmqwqn.supabase.co/functions/v1/auto-confirm-order`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ rfq_id: rfqId }),
+      }
+    );
+    if (!response.ok) return false;
+
+    const data = await response.json();
+    return !!data.applied;
+  } catch (error) {
+    console.error('Error auto-confirming fixed-price order:', error);
+    return false;
+  }
+};
+
 export const useSupabaseWorkflow = () => {
   const { user } = useAuth();
   const { isSupplier } = useUserRole();
@@ -250,9 +291,10 @@ export const useSupabaseWorkflow = () => {
 
       console.log('Inserting products:', productsToInsert);
 
-      const { error: productsError } = await supabase
+      const { data: insertedProducts, error: productsError } = await supabase
         .from('products')
-        .insert(productsToInsert);
+        .insert(productsToInsert)
+        .select('id, source_product_id, quantity, target_lead_time');
 
       if (productsError) {
         console.error('Products creation error:', productsError);
@@ -262,18 +304,29 @@ export const useSupabaseWorkflow = () => {
 
       console.log('Products created successfully');
 
-      // If the RFQ was targeted at one supplier (built from their portfolio
-      // page), let them know immediately — this is the "new RFQ request
-      // received" notification.
+      // If the RFQ is targeted at one supplier who has negotiation turned
+      // off and every line is a priced catalog item of theirs, skip
+      // straight to a confirmed order instead of the usual negotiation
+      // flow. Otherwise fall back to the normal "new RFQ received"
+      // notification -- the supplier will create a quote manually.
+      let autoConfirmed = false;
       if (rfqData.targetSupplierId) {
-        await notifyUser(
-          rfqData.targetSupplierId,
-          `New RFQ ${rfq.rfq_number} received from ${user.user_metadata?.company || user.email || 'a customer'}.`,
-          `/rfq/${rfq.id}`
-        );
+        autoConfirmed = await tryAutoConfirmFixedPriceOrder(rfq.id);
+
+        if (!autoConfirmed) {
+          await notifyUser(
+            rfqData.targetSupplierId,
+            `New RFQ ${rfq.rfq_number} received from ${user.user_metadata?.company || user.email || 'a customer'}.`,
+            `/rfq/${rfq.id}`
+          );
+        }
       }
 
-      toast.success('RFQ submitted successfully!');
+      toast.success(
+        autoConfirmed
+          ? 'Order confirmed at the supplier\'s fixed prices! Check your RFQ for the Purchase Order and payment details.'
+          : 'RFQ submitted successfully!'
+      );
 
       await fetchRFQs();
       return rfq.id;
@@ -676,6 +729,85 @@ export const useSupabaseWorkflow = () => {
     }
   };
 
+  // Customer declares they've paid (scanned the supplier's QR and paid
+  // externally -- there's no payment gateway on this platform). Marks
+  // payment as 'Partial' -- claimed but not yet confirmed -- and lets the
+  // supplier know to check and confirm.
+  const declarePaymentMade = async (orderId: string) => {
+    try {
+      const order = orders.find(o => o.id === orderId);
+      if (!order) return;
+
+      const { error } = await supabase
+        .from('orders')
+        .update({ payment_status: 'Partial' })
+        .eq('id', orderId);
+      if (error) throw error;
+
+      const { data: rfqRow } = await supabase
+        .from('rfqs')
+        .select('rfq_number')
+        .eq('id', order.rfq_id)
+        .single();
+      const { data: quoteRow } = await supabase
+        .from('quotes')
+        .select('supplier_id')
+        .eq('id', order.quote_id)
+        .single();
+
+      toast.success('Marked as paid — the supplier will confirm receipt shortly');
+      if (quoteRow?.supplier_id) {
+        await notifyUser(
+          quoteRow.supplier_id,
+          `Customer says they've paid for PO ${order.po_number} (RFQ ${rfqRow?.rfq_number || ''}). Please confirm once you've received it.`,
+          `/quote/${order.quote_id}`
+        );
+      }
+
+      await fetchOrders();
+    } catch (error) {
+      console.error('Error declaring payment made:', error);
+      toast.error('Failed to update payment status');
+    }
+  };
+
+  // Supplier confirms the payment actually arrived. This is the only action
+  // that marks payment 'Done' in this flow -- the customer can only claim
+  // 'Partial', keeping the final confirmation on the side that can actually
+  // verify the money landed.
+  const confirmPaymentReceived = async (orderId: string) => {
+    try {
+      const order = orders.find(o => o.id === orderId);
+      if (!order) return;
+
+      const { error } = await supabase
+        .from('orders')
+        .update({ payment_status: 'Done' })
+        .eq('id', orderId);
+      if (error) throw error;
+
+      const { data: rfqRow } = await supabase
+        .from('rfqs')
+        .select('rfq_number, user_id')
+        .eq('id', order.rfq_id)
+        .single();
+
+      toast.success('Payment confirmed');
+      if (rfqRow?.user_id) {
+        await notifyUser(
+          rfqRow.user_id,
+          `Your payment for PO ${order.po_number} (RFQ ${rfqRow.rfq_number}) has been confirmed by the supplier.`,
+          `/quote/${order.quote_id}`
+        );
+      }
+
+      await fetchOrders();
+    } catch (error) {
+      console.error('Error confirming payment received:', error);
+      toast.error('Failed to confirm payment');
+    }
+  };
+
   // Cancel an RFQ entirely. Available to the customer who owns it, or any
   // supplier who has quoted on it, at any point in the negotiation -- a
   // deal can be called off from either side, not just by the party that
@@ -792,6 +924,8 @@ export const useSupabaseWorkflow = () => {
     submitPurchaseOrder,
     retryOrderCreation,
     acknowledgePO,
+    declarePaymentMade,
+    confirmPaymentReceived,
     updateOrderStatus,
     updatePaymentStatus,
     refresh: () => {

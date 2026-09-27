@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { User, Building, Phone, MapPin, Mail, Link, CreditCard, Camera, Save, Edit3, IdCard, Tags, AtSign, Copy, ExternalLink } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { User, Building, Phone, MapPin, Mail, Link, CreditCard, Camera, Save, Edit3, IdCard, Tags, AtSign, Copy, ExternalLink, Handshake, QrCode, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -29,6 +30,14 @@ interface SupplierInfo {
   description: string;
   username: string | null;
   bio: string | null;
+  // false = supplier has committed to catalog Fixed Prices and skips
+  // per-line negotiation entirely -- RFQs built from their catalog become
+  // an auto-confirmed PO immediately (see submitRFQ in useSupabaseWorkflow).
+  negotiationEnabled: boolean;
+  // The supplier's own UPI/bank QR code image, shown to the customer once a
+  // PO exists so they can pay externally (no payment gateway on this
+  // platform -- manual pay-and-confirm, like the existing payment_status).
+  paymentQrUrl: string | null;
 }
 
 const USERNAME_REGEX = /^[a-z0-9_]{3,30}$/;
@@ -91,7 +100,7 @@ const ProfilePage = () => {
 
     const { data, error } = await supabase
       .from('suppliers')
-      .select('created_at, contact_info, username, bio')
+      .select('created_at, contact_info, username, bio, negotiation_enabled, payment_qr_url')
       .eq('id', user.id)
       .maybeSingle();
 
@@ -110,6 +119,8 @@ const ProfilePage = () => {
         description: contactInfo.description || '',
         username: data.username,
         bio: data.bio,
+        negotiationEnabled: data.negotiation_enabled,
+        paymentQrUrl: data.payment_qr_url,
       });
       setUsernameInput(data.username || '');
     } else {
@@ -125,7 +136,7 @@ const ProfilePage = () => {
         .single();
 
       if (!createError && newSupplier) {
-        setSupplierInfo({ created_at: newSupplier.created_at, categories: [], description: '', username: null, bio: null });
+        setSupplierInfo({ created_at: newSupplier.created_at, categories: [], description: '', username: null, bio: null, negotiationEnabled: true, paymentQrUrl: null });
       }
     }
   };
@@ -206,6 +217,8 @@ const ProfilePage = () => {
             },
             username: trimmedUsername || null,
             bio: supplierInfo.bio?.trim() || null,
+            negotiation_enabled: supplierInfo.negotiationEnabled,
+            payment_qr_url: supplierInfo.paymentQrUrl,
           })
           .eq('id', user.id);
 
@@ -264,6 +277,37 @@ const ProfilePage = () => {
 
   const updateField = (field: keyof UserProfile, value: string) => {
     setProfile(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleQrUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    setUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/payment-qr.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('product-images')
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('product-images')
+        .getPublicUrl(fileName);
+
+      // Cache-bust so re-uploading the same filename shows the new image
+      // immediately instead of a stale cached one.
+      setSupplierInfo(prev => prev ? { ...prev, paymentQrUrl: `${publicUrl}?t=${Date.now()}` } : prev);
+      toast.success("Payment QR code uploaded! Click Save Changes to apply.");
+    } catch (error) {
+      console.error('Error uploading payment QR code:', error);
+      toast.error("Failed to upload QR code");
+    } finally {
+      setUploading(false);
+    }
   };
 
   const updateSupplierField = (field: 'description' | 'categories', value: string) => {
@@ -599,6 +643,87 @@ const ProfilePage = () => {
                   ))}
                 </div>
               )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Negotiation & Payment Settings */}
+        {isSupplier() && supplierInfo && (
+          <Card className="shadow-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Handshake className="w-5 h-5" />
+                Negotiation & Payment
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <Label className="text-base">Allow Price Negotiation</Label>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {supplierInfo.negotiationEnabled
+                      ? "On: customers can counter-offer on your quoted prices. You'll review each RFQ and submit a quote as usual."
+                      : "Off: your catalog's Fixed Price is final. A customer's RFQ is confirmed into a Purchase Order immediately -- no back-and-forth needed."}
+                  </p>
+                </div>
+                <Switch
+                  checked={supplierInfo.negotiationEnabled}
+                  onCheckedChange={(checked) => setSupplierInfo(prev => prev ? { ...prev, negotiationEnabled: checked } : prev)}
+                  disabled={!isEditing}
+                />
+              </div>
+
+              <div className="pt-4 border-t">
+                <Label>Payment QR Code</Label>
+                <p className="text-sm text-muted-foreground mt-1 mb-3">
+                  Your UPI or bank QR code. Shown to the customer once a Purchase Order is confirmed, so they can pay you directly -- payment happens outside the platform; you confirm receipt afterward.
+                </p>
+                {supplierInfo.paymentQrUrl ? (
+                  <div className="relative w-40">
+                    <img
+                      src={supplierInfo.paymentQrUrl}
+                      alt="Payment QR code"
+                      className="w-40 h-40 object-contain rounded-md border bg-white"
+                    />
+                    {isEditing && (
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0"
+                        onClick={() => setSupplierInfo(prev => prev ? { ...prev, paymentQrUrl: null } : prev)}
+                      >
+                        <X className="w-3 h-3" />
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="w-40 h-40 rounded-md border border-dashed flex items-center justify-center bg-muted">
+                    <QrCode className="w-10 h-10 text-muted-foreground/40" />
+                  </div>
+                )}
+                {isEditing && (
+                  <div className="mt-3">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleQrUpload}
+                      className="hidden"
+                      id="payment-qr-upload"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => document.getElementById('payment-qr-upload')?.click()}
+                      disabled={uploading}
+                    >
+                      {uploading ? <Camera className="w-4 h-4 mr-2 animate-spin" /> : <QrCode className="w-4 h-4 mr-2" />}
+                      {supplierInfo.paymentQrUrl ? 'Replace QR Code' : 'Upload QR Code'}
+                    </Button>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         )}
