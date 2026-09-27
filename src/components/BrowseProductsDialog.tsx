@@ -65,11 +65,7 @@ const BrowseProductsDialog = ({ open, onOpenChange }: BrowseProductsDialogProps)
                     <div className="flex items-center gap-2 flex-wrap mt-0.5">
                       <Badge variant="secondary" className="text-xs">{product.category}</Badge>
                       <span className="text-xs text-muted-foreground">
-                        {product.price_min && product.price_max
-                          ? `${formatCurrency(product.price_min)} - ${formatCurrency(product.price_max)}`
-                          : product.price
-                            ? formatCurrency(product.price)
-                            : 'Price on request'}
+                        {product.price ? formatCurrency(product.price) : 'Price on request'}
                       </span>
                     </div>
                   </div>

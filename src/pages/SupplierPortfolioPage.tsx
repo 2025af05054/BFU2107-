@@ -23,9 +23,9 @@ interface PortfolioRow {
   product_id: string | null;
   product_name: string | null;
   product_description: string | null;
+  // The only price customers see -- the supplier's private floor price
+  // never leaves the database via this public RPC.
   product_price: number | null;
-  product_price_min: number | null;
-  product_price_max: number | null;
   product_images: string[] | null;
   product_category: string | null;
   product_sku: string | null;
@@ -73,12 +73,6 @@ const SupplierPortfolioPage = () => {
   }, [products, productSearch]);
 
   const formatPrice = (row: PortfolioRow): string => {
-    if (row.product_price_min && row.product_price_max) {
-      return row.product_price_min === row.product_price_max
-        ? formatCurrency(row.product_price_min)
-        : `${formatCurrency(row.product_price_min)} - ${formatCurrency(row.product_price_max)}`;
-    }
-    if (row.product_price_min) return `${formatCurrency(row.product_price_min)}+`;
     if (row.product_price) return formatCurrency(row.product_price);
     return "Price on request";
   };

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { ArrowLeft, CheckCircle, X, MessageSquare, Calendar, Loader2, Handshake, Printer, Trash2, FileCheck, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { ChatDialog } from "@/components/ChatDialog";
 import { toast } from "sonner";
 import { formatDateTime } from "@/lib/datetime";
+import { supabase } from "@/integrations/supabase/client";
 
 const lineStatusColor = (status: string) => {
   switch (status) {
@@ -56,6 +57,11 @@ const QuoteDetailsPage = () => {
   // the ✕ on a product opens this instead of immediately rejecting it —
   // matches "click cross, type the new price, send it back" from the spec.
   const [counterOpenFor, setCounterOpenFor] = useState<Record<string, boolean>>({});
+  // Supplier's own reference prices (fixed + private floor) for whichever
+  // RFQ products came from their catalog, keyed by product.id (the RFQ
+  // line, not the catalog item) for easy lookup while rendering. Never
+  // shown to the customer -- fetched only when the viewer is the supplier.
+  const [priceRefByProductId, setPriceRefByProductId] = useState<Record<string, { listedPrice: number | null; floorPrice: number | null }>>({});
 
   let quote = quotes.find(q => q.id === id);
   const rfq = quote ? rfqs.find(r => r.id === quote.rfq_id) : rfqs.find(r => r.id === id);
@@ -63,6 +69,34 @@ const QuoteDetailsPage = () => {
     quote = quotes.find(q => q.rfq_id === rfq!.id);
   }
   const order = quote ? orders.find(o => o.quote_id === quote!.id) : undefined;
+
+  useEffect(() => {
+    const fetchPriceRef = async () => {
+      if (!isSupplier() || !user || !rfq?.products?.length) return;
+      const bySourceId = new Map(
+        rfq.products
+          .filter(p => p.source_product_id)
+          .map(p => [p.source_product_id as string, p.id])
+      );
+      if (bySourceId.size === 0) return;
+
+      const { data, error } = await supabase
+        .from('supplier_products')
+        .select('id, price, price_min')
+        .in('id', [...bySourceId.keys()])
+        .eq('supplier_id', user.id);
+      if (error || !data) return;
+
+      const refs: Record<string, { listedPrice: number | null; floorPrice: number | null }> = {};
+      data.forEach(row => {
+        const productId = bySourceId.get(row.id);
+        if (productId) refs[productId] = { listedPrice: row.price, floorPrice: row.price_min };
+      });
+      setPriceRefByProductId(refs);
+    };
+    fetchPriceRef();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rfq?.id, user?.id]);
 
   if (loading) {
     return (
@@ -400,6 +434,18 @@ const QuoteDetailsPage = () => {
                             </p>
                           ) : (
                             <>
+                              {/* Supplier-only reference so they know their own
+                                  floor before countering -- never shown to the
+                                  customer. */}
+                              {isMine && priceRefByProductId[product.id] && (
+                                <div className="flex items-center gap-1.5 text-xs rounded-md px-2 py-1.5 w-fit bg-blue-50 text-blue-800">
+                                  <span>
+                                    Your reference —
+                                    {priceRefByProductId[product.id].listedPrice !== null && ` Fixed: ₹${priceRefByProductId[product.id].listedPrice!.toLocaleString()}`}
+                                    {priceRefByProductId[product.id].floorPrice !== null && ` · Floor: ₹${priceRefByProductId[product.id].floorPrice!.toLocaleString()}`}
+                                  </span>
+                                </div>
+                              )}
                               {/* ✓ accepts the current price as-is. ✕ opens the
                                   counter box below to type a new price and send
                                   it back — it doesn't reject the item outright. */}

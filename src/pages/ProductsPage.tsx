@@ -20,8 +20,6 @@ interface Product {
   category: string;
   description: string;
   price: number;
-  priceMin?: number;
-  priceMax?: number;
   image: string;
   images: string[];
   supplier: string;
@@ -86,24 +84,12 @@ const ProductsPage = () => {
     if (!productsData || !Array.isArray(productsData)) return [];
     
     return productsData.map(product => {
-      // Calculate price display - use range if available, otherwise single price
-      let displayPrice = 0;
-      if (product.price_min && product.price_max) {
-        displayPrice = product.price_max; // Use max for sorting
-      } else if (product.price) {
-        displayPrice = product.price;
-      } else if (product.price_min) {
-        displayPrice = product.price_min;
-      }
-
       return {
         id: product.id,
         name: product.name,
         category: product.category || getProductCategory(product.name, product.description),
         description: product.description,
-        price: displayPrice,
-        priceMin: product.price_min,
-        priceMax: product.price_max,
+        price: product.price || 0,
         image: product.images && product.images.length > 0 ? product.images[0] : '/placeholder.svg',
         images: product.images || [],
         supplier: product.supplier.company_name || 'Unknown Supplier',
@@ -162,14 +148,7 @@ const ProductsPage = () => {
   // Helper function to format price display. Stored prices are in INR;
   // formatCurrency converts to USD automatically for non-Indian viewers.
   const formatPrice = (product: Product): string => {
-    if (product.priceMin && product.priceMax) {
-      if (product.priceMin === product.priceMax) {
-        return formatCurrency(product.priceMin);
-      }
-      return `${formatCurrency(product.priceMin)} - ${formatCurrency(product.priceMax)}`;
-    } else if (product.priceMin) {
-      return `${formatCurrency(product.priceMin)}+`;
-    } else if (product.price > 0) {
+    if (product.price > 0) {
       return formatCurrency(product.price);
     }
     return 'Price on request';
@@ -179,11 +158,11 @@ const ProductsPage = () => {
       const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            product.description.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
-      const matchesPrice = priceRange === 'all' || 
-        (priceRange === 'low' && (product.priceMax || product.price) <= 1000) ||
-        (priceRange === 'medium' && (product.priceMin || product.price) > 1000 && (product.priceMax || product.price) <= 10000) ||
-        (priceRange === 'high' && (product.priceMin || product.price) > 10000);
-      
+      const matchesPrice = priceRange === 'all' ||
+        (priceRange === 'low' && product.price <= 1000) ||
+        (priceRange === 'medium' && product.price > 1000 && product.price <= 10000) ||
+        (priceRange === 'high' && product.price > 10000);
+
       return matchesSearch && matchesCategory && matchesPrice;
     });
 

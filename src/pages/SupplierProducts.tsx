@@ -26,8 +26,9 @@ interface SupplierProduct {
   category_id: string | null;
   sku: string | null;
   price: number | null;
+  // Internal reference only -- the lowest the supplier will go while
+  // negotiating. Never shown to customers.
   price_min: number | null;
-  price_max: number | null;
   images: string[] | null;
   created_at: string;
   updated_at: string;
@@ -65,7 +66,6 @@ const SupplierProducts = () => {
     category_id: '',
     price: '',
     price_min: '',
-    price_max: '',
     images: [] as string[],
     stock_available: '',
     safety_stock: ''
@@ -173,7 +173,6 @@ const SupplierProducts = () => {
         category_id: formData.category_id || null,
         price: formData.price ? parseFloat(formData.price) : null,
         price_min: formData.price_min ? parseFloat(formData.price_min) : null,
-        price_max: formData.price_max ? parseFloat(formData.price_max) : null,
         images: formData.images.length > 0 ? formData.images : null,
         stock_available: formData.stock_available ? parseInt(formData.stock_available, 10) : null,
         safety_stock: formData.safety_stock ? parseInt(formData.safety_stock, 10) : 0,
@@ -219,7 +218,7 @@ const SupplierProducts = () => {
         body: {
           name: formData.name,
           category: findCategoryName(formData.category_id) || formData.category,
-          price: formData.price || formData.price_min || formData.price_max,
+          price: formData.price || formData.price_min,
           description: formData.description,
         },
       });
@@ -288,7 +287,6 @@ const SupplierProducts = () => {
       category_id: product.category_id || '',
       price: product.price?.toString() || '',
       price_min: product.price_min?.toString() || '',
-      price_max: product.price_max?.toString() || '',
       images: product.images || [],
       stock_available: product.stock_available?.toString() || '',
       safety_stock: product.safety_stock?.toString() || ''
@@ -321,7 +319,6 @@ const SupplierProducts = () => {
       category_id: '',
       price: '',
       price_min: '',
-      price_max: '',
       images: [],
       stock_available: '',
       safety_stock: ''
@@ -425,7 +422,7 @@ const SupplierProducts = () => {
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="price">Fixed Price (₹)</Label>
                       <Input
@@ -436,9 +433,12 @@ const SupplierProducts = () => {
                         onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                         placeholder="0.00"
                       />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Shown to customers. This is what they see and base their RFQ on.
+                      </p>
                     </div>
                     <div>
-                      <Label htmlFor="price_min">Min Price (₹)</Label>
+                      <Label htmlFor="price_min">Floor Price (₹)</Label>
                       <Input
                         id="price_min"
                         type="number"
@@ -447,17 +447,9 @@ const SupplierProducts = () => {
                         onChange={(e) => setFormData({ ...formData, price_min: e.target.value })}
                         placeholder="0.00"
                       />
-                    </div>
-                    <div>
-                      <Label htmlFor="price_max">Max Price (₹)</Label>
-                      <Input
-                        id="price_max"
-                        type="number"
-                        step="0.01"
-                        value={formData.price_max}
-                        onChange={(e) => setFormData({ ...formData, price_max: e.target.value })}
-                        placeholder="0.00"
-                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        For your reference only — the lowest you're willing to go. Customers never see this; it only shows to you while negotiating.
+                      </p>
                     </div>
                   </div>
 
@@ -687,12 +679,13 @@ const SupplierProducts = () => {
                       <IndianRupee className="w-4 h-4 text-muted-foreground" />
                       {product.price ? (
                         <span className="font-semibold">{product.price.toLocaleString('en-IN')}</span>
-                      ) : product.price_min && product.price_max ? (
-                        <span className="font-semibold">
-                          {product.price_min.toLocaleString('en-IN')} - {product.price_max.toLocaleString('en-IN')}
-                        </span>
                       ) : (
                         <span className="text-muted-foreground">Price on request</span>
+                      )}
+                      {product.price_min !== null && (
+                        <span className="text-xs text-muted-foreground ml-1">
+                          (floor: ₹{product.price_min.toLocaleString('en-IN')})
+                        </span>
                       )}
                     </div>
 

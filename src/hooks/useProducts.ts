@@ -5,9 +5,10 @@ interface SupplierProduct {
   id: string;
   name: string;
   description: string;
+  // The only price customers ever see. Suppliers also keep a private floor
+  // price for their own negotiation reference, but that never reaches this
+  // customer-facing hook.
   price: number;
-  price_min: number;
-  price_max: number;
   category: string;
   images: string[];
   supplier_name?: string;
@@ -57,8 +58,6 @@ export const useProductsDirect = () => {
           name,
           description,
           price,
-          price_min,
-          price_max,
           category,
           images,
           supplier_name,
@@ -79,8 +78,6 @@ export const useProductsDirect = () => {
         name: product.name,
         description: product.description || '',
         price: product.price || 0,
-        price_min: product.price_min || 0,
-        price_max: product.price_max || 0,
         category: product.category || 'Uncategorized',
         images: product.images || [],
         supplier_id: product.supplier_id,

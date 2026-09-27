@@ -160,11 +160,7 @@ const SupplierProfilePage = () => {
               </CardHeader>
               <CardContent className="space-y-3">
                 <p className="text-sm font-medium">
-                  {product.price_min && product.price_max
-                    ? `${formatCurrency(product.price_min)} - ${formatCurrency(product.price_max)}`
-                    : product.price
-                      ? formatCurrency(product.price)
-                      : 'Price on request'}
+                  {product.price ? formatCurrency(product.price) : 'Price on request'}
                 </p>
                 <Button
                   size="sm"

@@ -28,6 +28,10 @@ interface StockInfo {
   stockAvailable: number | null;
   safetyStock: number;
   committedElsewhere: number;
+  // Supplier's own reference prices for this catalog item -- never shown
+  // to the customer. floorPrice is the lowest they're willing to accept.
+  listedPrice: number | null;
+  floorPrice: number | null;
 }
 
 interface RFQ {
@@ -106,7 +110,7 @@ const CreateQuotePage = () => {
     try {
       const { data: catalogRows, error: catalogError } = await supabase
         .from("supplier_products")
-        .select("id, stock_available, safety_stock")
+        .select("id, stock_available, safety_stock, price, price_min")
         .in("id", sourceIds)
         .eq("supplier_id", user.id);
       if (catalogError) throw catalogError;
@@ -147,6 +151,8 @@ const CreateQuotePage = () => {
           stockAvailable: row.stock_available,
           safetyStock: row.safety_stock,
           committedElsewhere: committedBySourceId[row.id] || 0,
+          listedPrice: row.price,
+          floorPrice: row.price_min,
         };
       });
       setStockBySourceId(info);
@@ -297,6 +303,17 @@ const CreateQuotePage = () => {
                     {stock.committedElsewhere > 0 && ` • Committed to other POs: ${stock.committedElsewhere}`}
                     {' • Remaining after this quote: '}
                     <strong>{remaining}</strong>
+                  </span>
+                </div>
+              )}
+              {/* Supplier-only pricing reference from the catalog listing --
+                  the floor price never reaches the customer. */}
+              {stock && (stock.listedPrice !== null || stock.floorPrice !== null) && (
+                <div className="flex items-center gap-1.5 text-xs mt-2 rounded-md px-2 py-1.5 w-fit bg-blue-50 text-blue-800">
+                  <span>
+                    Your reference —
+                    {stock.listedPrice !== null && ` Fixed: ₹${stock.listedPrice.toLocaleString()}`}
+                    {stock.floorPrice !== null && ` · Floor: ₹${stock.floorPrice.toLocaleString()}`}
                   </span>
                 </div>
               )}
