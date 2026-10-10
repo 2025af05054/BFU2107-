@@ -14,7 +14,9 @@ import {
   UserCheck,
   ClipboardList,
   Truck,
-  FolderTree
+  FolderTree,
+  FolderOpen,
+  UploadCloud
 } from 'lucide-react';
 
 const AdminDashboard = () => {
@@ -84,6 +86,22 @@ const AdminDashboard = () => {
       path: '/admin/orders',
       color: 'text-orange-600',
       bgColor: 'bg-orange-100'
+    },
+    {
+      title: 'File Storage',
+      description: 'Upload and manage any type of file',
+      icon: FolderOpen,
+      path: '/admin/files',
+      color: 'text-teal-600',
+      bgColor: 'bg-teal-100'
+    },
+    {
+      title: 'Vendor Import',
+      description: 'Import supplier datasets from the vendor research pipeline',
+      icon: UploadCloud,
+      path: '/admin/vendors/import',
+      color: 'text-indigo-600',
+      bgColor: 'bg-indigo-100'
     }
   ];
 

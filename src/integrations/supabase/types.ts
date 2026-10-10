@@ -14,6 +14,167 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_files: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_path: string
+          file_size: number | null
+          file_type: string | null
+          id: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
+      vendor_import_batches: {
+        Row: {
+          cluster: string
+          created_at: string
+          file_name: string
+          id: string
+          product_category: string
+          row_count: number
+          source: string | null
+          state: string
+          status: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          cluster: string
+          created_at?: string
+          file_name: string
+          id?: string
+          product_category: string
+          row_count?: number
+          source?: string | null
+          state: string
+          status?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          cluster?: string
+          created_at?: string
+          file_name?: string
+          id?: string
+          product_category?: string
+          row_count?: number
+          source?: string | null
+          state?: string
+          status?: string
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
+      vendors: {
+        Row: {
+          batch_id: string | null
+          capability: string | null
+          certifications: string | null
+          cluster: string
+          company_name: string
+          company_size: string | null
+          contact_no: string | null
+          contact_person: string | null
+          created_at: string
+          email: string | null
+          full_address: string | null
+          id: string
+          installed_capacity: string | null
+          key_cluster: string | null
+          locality: string | null
+          material_type: string | null
+          phone_type: string | null
+          product_category: string
+          size_basis: string | null
+          source: string | null
+          specialty: string | null
+          state: string
+          status: string
+          website: string | null
+          year_established: string | null
+        }
+        Insert: {
+          batch_id?: string | null
+          capability?: string | null
+          certifications?: string | null
+          cluster: string
+          company_name: string
+          company_size?: string | null
+          contact_no?: string | null
+          contact_person?: string | null
+          created_at?: string
+          email?: string | null
+          full_address?: string | null
+          id?: string
+          installed_capacity?: string | null
+          key_cluster?: string | null
+          locality?: string | null
+          material_type?: string | null
+          phone_type?: string | null
+          product_category: string
+          size_basis?: string | null
+          source?: string | null
+          specialty?: string | null
+          state: string
+          status?: string
+          website?: string | null
+          year_established?: string | null
+        }
+        Update: {
+          batch_id?: string | null
+          capability?: string | null
+          certifications?: string | null
+          cluster?: string
+          company_name?: string
+          company_size?: string | null
+          contact_no?: string | null
+          contact_person?: string | null
+          created_at?: string
+          email?: string | null
+          full_address?: string | null
+          id?: string
+          installed_capacity?: string | null
+          key_cluster?: string | null
+          locality?: string | null
+          material_type?: string | null
+          phone_type?: string | null
+          product_category?: string
+          size_basis?: string | null
+          source?: string | null
+          specialty?: string | null
+          state?: string
+          status?: string
+          website?: string | null
+          year_established?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendors_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_import_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categories: {
         Row: {
           created_at: string
@@ -178,6 +339,44 @@ export type Database = {
           },
         ]
       }
+      product_quote_offers: {
+        Row: {
+          actor: string
+          created_at: string
+          id: string
+          lead_time: number | null
+          message: string | null
+          product_quote_id: string
+          unit_price: number
+        }
+        Insert: {
+          actor: string
+          created_at?: string
+          id?: string
+          lead_time?: number | null
+          message?: string | null
+          product_quote_id: string
+          unit_price: number
+        }
+        Update: {
+          actor?: string
+          created_at?: string
+          id?: string
+          lead_time?: number | null
+          message?: string | null
+          product_quote_id?: string
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_quote_offers_product_quote_id_fkey"
+            columns: ["product_quote_id"]
+            isOneToOne: false
+            referencedRelation: "product_quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_quotes: {
         Row: {
           created_at: string
@@ -228,44 +427,6 @@ export type Database = {
             columns: ["quote_id"]
             isOneToOne: false
             referencedRelation: "quotes"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      product_quote_offers: {
-        Row: {
-          actor: string
-          created_at: string
-          id: string
-          lead_time: number | null
-          message: string | null
-          product_quote_id: string
-          unit_price: number
-        }
-        Insert: {
-          actor: string
-          created_at?: string
-          id?: string
-          lead_time?: number | null
-          message?: string | null
-          product_quote_id: string
-          unit_price: number
-        }
-        Update: {
-          actor?: string
-          created_at?: string
-          id?: string
-          lead_time?: number | null
-          message?: string | null
-          product_quote_id?: string
-          unit_price?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "product_quote_offers_product_quote_id_fkey"
-            columns: ["product_quote_id"]
-            isOneToOne: false
-            referencedRelation: "product_quotes"
             referencedColumns: ["id"]
           },
         ]
@@ -456,15 +617,7 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "rfqs_target_supplier_id_fkey"
-            columns: ["target_supplier_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       supplier_products: {
         Row: {
@@ -657,8 +810,6 @@ export type Database = {
           product_images: string[]
           product_name: string
           product_price: number
-          product_price_max: number
-          product_price_min: number
           product_sku: string
           product_status: string
           supplier_created_at: string
@@ -681,6 +832,10 @@ export type Database = {
         Args: { p_username: string }
         Returns: boolean
       }
+      supplier_has_quote_on_rfq: {
+        Args: { _rfq_id: string; _supplier_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "supplier" | "customer"
@@ -700,12 +855,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -729,11 +884,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -754,11 +909,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -779,11 +934,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -796,11 +951,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

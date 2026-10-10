@@ -33,6 +33,8 @@ import AdminCategoriesPage from "./pages/AdminCategoriesPage";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminRFQManagement from "./pages/AdminRFQManagement";
 import AdminOrderManagement from "./pages/AdminOrderManagement";
+import AdminFilesPage from "./pages/AdminFilesPage";
+import AdminVendorImportPage from "./pages/AdminVendorImportPage";
 import SupplierDashboard from "./pages/SupplierDashboard";
 import RFQResponses from "./pages/RFQResponses";
 import UserDashboard from "./pages/UserDashboard";
@@ -88,6 +90,8 @@ const App: React.FC = () => {
               <Route path="/admin/products/import" element={<RoleBasedRoute allowedRoles={['admin']}><Layout><AdminBulkProductImport /></Layout></RoleBasedRoute>} />
               <Route path="/admin/categories" element={<RoleBasedRoute allowedRoles={['admin']}><AdminCategoriesPage /></RoleBasedRoute>} />
               <Route path="/admin/orders" element={<RoleBasedRoute allowedRoles={['admin']}><AdminOrderManagement /></RoleBasedRoute>} />
+              <Route path="/admin/files" element={<RoleBasedRoute allowedRoles={['admin']}><AdminFilesPage /></RoleBasedRoute>} />
+              <Route path="/admin/vendors/import" element={<RoleBasedRoute allowedRoles={['admin']}><AdminVendorImportPage /></RoleBasedRoute>} />
               
               {/* Legacy admin routes for backwards compatibility */}
               <Route path="/admin-panel" element={<RoleBasedRoute allowedRoles={['admin']}><AdminPanel /></RoleBasedRoute>} />
