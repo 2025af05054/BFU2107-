@@ -8,6 +8,9 @@ import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { toast } from "sonner";
 import heroImage from "@/assets/hero-b2b.jpg";
+import industriesImage from "@/assets/industries-showcase.jpg";
+import capabilitiesImage from "@/assets/manufacturing-capabilities.jpg";
+import qualityExportImage from "@/assets/quality-export-readiness.jpg";
 import { useProducts } from "@/hooks/useProducts";
 import { useRFQCart } from "@/contexts/RFQCartContext";
 
@@ -36,127 +39,127 @@ const HomePage = () => {
   };
 
   const featuredProducts = productsData?.products?.slice(0, 12) || [];
-  const categories = ['Electronics', 'Industrial', 'Safety Equipment', 'Machinery', 'Materials'];
+  const categories = ['Castings', 'Forged Components', 'Custom-Machined Parts', 'Industrial', 'Machinery'];
   const features = [
     {
       icon: Search,
-      title: "Smart RFQ System",
-      description: "Submit detailed requirements and get competitive quotes from verified suppliers."
+      title: "Factory-Direct Quotations",
+      description: "We source quotations for industrial castings, forged components, and custom-machined metal parts directly from vetted Indian factories."
     },
     {
       icon: Users,
-      title: "Verified Network",
-      description: "Connect with pre-screened suppliers and manufacturers you can trust."
+      title: "For Industrial Buyers",
+      description: "Built for OEMs, industrial distributors, contract manufacturers, MRO companies, and machinery importers across Europe."
     },
     {
       icon: Globe,
-      title: "Global Reach",
-      description: "Access suppliers from around the world with local support."
+      title: "Export to Europe",
+      description: "We manage HS code classification, customs duty, CE marking applicability, and EU Machinery Regulation (2023/1230) scope for every order."
     },
     {
       icon: Zap,
-      title: "Fast Processing",
-      description: "Get quotes quickly with our streamlined sourcing process."
+      title: "Start Small, Scale Up",
+      description: "Begin with samples and small trial orders before committing to full production runs — lower risk, faster qualification."
     },
     {
       icon: Shield,
-      title: "Secure Transactions",
-      description: "Trade with confidence through our secure platform."
+      title: "Verified Quality Documentation",
+      description: "Material certificates, dimensional inspection reports, traceability records, and required testing provided with every shipment."
     },
     {
       icon: Truck,
-      title: "End-to-End Tracking",
-      description: "Monitor your orders from placement to delivery."
+      title: "End-to-End Coordination",
+      description: "We manage supplier reliability, production timelines, payment terms, shipping, and customer complaints on your behalf."
     }
   ];
 
   const steps = [
     {
       step: "01",
-      title: "Submit RFQ",
-      description: "Tell us what you need with detailed product requirements and specifications."
+      title: "Share Your Requirement",
+      description: "Send us your drawing, specification, or sample for the casting, forged part, or machined component you need."
     },
     {
-      step: "02", 
-      title: "Get Matched",
-      description: "Our team finds the best suppliers and aggregates competitive quotes for you."
+      step: "02",
+      title: "Factory Quotation",
+      description: "We obtain a competitive quotation from a qualified Indian factory, including HS code and estimated landed cost to Europe."
     },
     {
       step: "03",
-      title: "Compare & Choose", 
-      description: "Review quotes, terms, and supplier profiles to make informed decisions."
+      title: "Sample & Qualification",
+      description: "We coordinate first samples, inspection reports, and material certificates so you can qualify the part before committing."
     },
     {
       step: "04",
-      title: "Place Order",
-      description: "Confirm your purchase and track delivery through our platform."
+      title: "Production & Delivery",
+      description: "We oversee production, quality checks, and export documentation, then ship and track delivery to your facility in Europe."
     }
   ];
 
   return (
     <div className="min-h-screen">
-      {/* Hero Section - Alibaba Style */}
-      <section className="relative bg-gradient-to-br from-background via-muted/30 to-accent/10 overflow-hidden">
-        <div className="absolute inset-0 opacity-40">
-          <div className="absolute inset-0 bg-repeat" style={{
-            backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(0,0,0,.05) 1px, transparent 0)',
-            backgroundSize: '20px 20px'
-          }}></div>
-        </div>
-        
-        <div className="relative container mx-auto px-4 py-12 md:py-24">
-          <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+      {/* Hero Section */}
+      <section className="relative bg-foreground text-background overflow-hidden">
+        <div className="absolute inset-0 opacity-[0.08]" style={{
+          backgroundImage: 'linear-gradient(rgba(255,255,255,.4) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.4) 1px, transparent 1px)',
+          backgroundSize: '48px 48px'
+        }}></div>
+        <div className="absolute -top-24 -right-24 w-[32rem] h-[32rem] rounded-full bg-accent/20 blur-3xl"></div>
+
+        <div className="relative container mx-auto px-4 py-16 md:py-28">
+          <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
             <div className="space-y-6 md:space-y-8">
-              <div className="space-y-4">
-                <Badge className="bg-accent/10 text-accent border-accent/20 px-4 py-2 text-sm font-semibold">
-                  🚀 Smart Sourcing Solutions
-                </Badge>
-                <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold text-foreground leading-tight">
-                  Making Sourcing
-                  <span className="text-accent block"> Smarter & Faster</span>
+              <div className="space-y-5">
+                <span className="inline-block text-xs font-semibold tracking-[0.2em] uppercase text-accent">
+                  India → Europe · Industrial Sourcing
+                </span>
+                <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-tight">
+                  Your Industrial Sourcing Partner in India
                 </h1>
-                <p className="text-base sm:text-lg md:text-xl text-muted-foreground leading-relaxed max-w-lg">
-                  Connect with verified suppliers, get competitive quotes, and streamline your procurement process with BUY FOR US.
+                <p className="text-base sm:text-lg md:text-xl text-background/70 leading-relaxed max-w-lg">
+                  Connect with qualified Indian manufacturers for castings, forgings, CNC-machined and
+                  custom industrial components. From technical requirements and supplier qualification
+                  to inspection and export coordination, we help simplify your sourcing journey.
                 </p>
               </div>
-              
+
               <div className="flex flex-col sm:flex-row gap-4">
-                <Button size="xl" className="text-lg font-bold" asChild>
+                <Button size="xl" className="text-lg font-bold bg-accent text-accent-foreground hover:bg-accent/90" asChild>
                   <Link to="/rfq">
-                    Start Sourcing Now
+                    Submit an RFQ
                     <ArrowRight className="w-5 h-5 ml-2" />
                   </Link>
                 </Button>
-                <Button variant="outline" size="xl" className="text-lg font-semibold" asChild>
-                  <Link to="/rfq">
+                <Button variant="outline" size="xl" className="text-lg font-semibold bg-transparent border-background/30 text-background hover:bg-background/10 hover:text-background" asChild>
+                  <Link to="/products">
                     <FileText className="w-5 h-5 mr-2" />
-                    Create RFQ
+                    Explore Our Capabilities
                   </Link>
                 </Button>
               </div>
 
-              <div className="flex items-center space-x-8 pt-4">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-foreground">1000+</div>
-                  <div className="text-sm text-muted-foreground">Verified Suppliers</div>
+              <div className="flex items-center gap-8 pt-4 border-t border-background/10">
+                <div>
+                  <div className="text-lg font-bold">Castings</div>
+                  <div className="text-xs text-background/60">Sand, Investment, Die</div>
                 </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-foreground">50K+</div>
-                  <div className="text-sm text-muted-foreground">Products Sourced</div>
+                <div>
+                  <div className="text-lg font-bold">Forgings</div>
+                  <div className="text-xs text-background/60">Open & Closed Die</div>
                 </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-foreground">24/7</div>
-                  <div className="text-sm text-muted-foreground">Support</div>
+                <div>
+                  <div className="text-lg font-bold">CNC Parts</div>
+                  <div className="text-xs text-background/60">Custom Machining</div>
                 </div>
               </div>
             </div>
-            
+
             <div className="relative">
-              <div className="absolute -inset-4 gradient-hero rounded-2xl blur-lg opacity-20"></div>
-              <img 
-                src={heroImage} 
-                alt="B2B Sourcing Platform" 
-                className="relative w-full h-auto rounded-2xl shadow-hover"
+              <div className="absolute -inset-4 bg-accent/30 rounded-2xl blur-2xl opacity-40"></div>
+              <img
+                src={heroImage}
+                alt="Industrial castings and machined parts ready for export to Europe"
+                className="relative w-full h-auto rounded-2xl shadow-hover border border-background/10"
               />
             </div>
           </div>
@@ -217,9 +220,9 @@ const HomePage = () => {
       <section className="py-20 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-4">How BUY FOR US Works</h2>
+            <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-4">How We Export to Europe</h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Our streamlined process makes B2B sourcing simple, efficient, and reliable
+              A clear, documented process from first inquiry to delivery at your facility
             </p>
           </div>
 
@@ -241,13 +244,43 @@ const HomePage = () => {
         </div>
       </section>
 
+      {/* Manufacturing Capabilities */}
+      <section className="py-16 md:py-20 bg-muted/30">
+        <div className="container mx-auto px-4">
+          <h2 className="sr-only">Our Manufacturing Capabilities</h2>
+          <div className="group relative max-w-6xl mx-auto overflow-hidden rounded-2xl border border-border shadow-card hover:shadow-hover transition-shadow duration-300">
+            <img
+              src={capabilitiesImage}
+              alt="Our manufacturing capabilities: castings, forgings, CNC machining, fabricated components, shafts and gears, and pump and valve components, sourced from trusted Indian suppliers for European industrial buyers. Quality focused, verified suppliers, on-time coordination, export ready."
+              className="w-full h-auto transition-transform duration-500 group-hover:scale-[1.03]"
+              loading="lazy"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Industries We Serve */}
+      <section className="py-16 md:py-20">
+        <div className="container mx-auto px-4">
+          <h2 className="sr-only">Industries We Serve</h2>
+          <div className="group relative max-w-6xl mx-auto overflow-hidden rounded-2xl border border-border shadow-card hover:shadow-hover transition-shadow duration-300">
+            <img
+              src={industriesImage}
+              alt="Industries we serve: automotive and EV components, construction and earthmoving equipment, agricultural machinery, pumps valves and fluid handling, material handling and cranes, energy and power generation, rail and transportation, and general industrial machinery"
+              className="w-full h-auto transition-transform duration-500 group-hover:scale-[1.03]"
+              loading="lazy"
+            />
+          </div>
+        </div>
+      </section>
+
       {/* Features */}
       <section className="py-20">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-4">Why Choose BUY FOR US?</h2>
+            <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-4">Why European Buyers Choose Us</h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              We provide comprehensive sourcing solutions that save time and reduce costs
+              We handle sourcing, quality, compliance, and logistics so you don't have to manage an Indian factory directly
             </p>
           </div>
 
@@ -365,25 +398,42 @@ const HomePage = () => {
         </div>
       </section>
 
+      {/* Quality Assurance & Export Readiness */}
+      <section className="py-16 md:py-20 bg-muted/30">
+        <div className="container mx-auto px-4">
+          <h2 className="sr-only">Quality Assurance &amp; Export Readiness</h2>
+          <div className="group relative max-w-6xl mx-auto overflow-hidden rounded-2xl border border-border shadow-card hover:shadow-hover transition-shadow duration-300">
+            <img
+              src={qualityExportImage}
+              alt="Quality and compliance: material certificates, dimensional inspection, traceability, supplier certifications, testing requirements, HS code and customs, EU product legislation, and CBAM and environmental assessment. Export readiness: from Indian factory to European industry via manufacturing and inspection, export documentation, shipping and logistics, and delivery to Europe."
+              className="w-full h-auto transition-transform duration-500 group-hover:scale-[1.03]"
+              loading="lazy"
+            />
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
-      <section className="py-12 md:py-20 bg-gradient-to-br from-amber-400 via-yellow-500 to-amber-600">
+      <section className="py-12 md:py-20 bg-foreground text-background">
         <div className="container mx-auto px-4 text-center">
-          <h2 className="text-xl sm:text-2xl md:text-4xl font-bold text-black mb-6 drop-shadow-sm">
-            Ready to Transform Your Sourcing?
+          <h2 className="text-xl sm:text-2xl md:text-4xl font-bold mb-6">
+            Looking for a Reliable Manufacturing Partner in India?
           </h2>
-          <p className="text-base sm:text-lg md:text-xl text-black font-medium mb-8 max-w-2xl mx-auto drop-shadow-sm">
-            Join thousands of businesses already using BUY FOR US to streamline their procurement process.
+          <p className="text-base sm:text-lg md:text-xl text-background/70 mb-8 max-w-2xl mx-auto">
+            Share your technical requirements and let us help identify suitable manufacturing options —
+            including factory quotation, HS code and compliance review for your casting, forging, or
+            machined part.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="xl" className="text-lg font-bold bg-black text-white hover:bg-gray-800 shadow-button" asChild>
+            <Button size="xl" className="text-lg font-bold bg-accent text-accent-foreground hover:bg-accent/90 shadow-button" asChild>
               <Link to="/rfq">
-                Start Your First RFQ
+                Submit Your RFQ
                 <ArrowRight className="w-5 h-5 ml-2" />
               </Link>
             </Button>
-            <Button size="xl" variant="outline" className="text-lg font-semibold bg-white/20 border-2 border-black text-black hover:bg-white/30 shadow-button" asChild>
-              <Link to="/suppliers">
-                Become a Supplier
+            <Button size="xl" variant="outline" className="text-lg font-semibold bg-transparent border-background/30 text-background hover:bg-background/10 hover:text-background shadow-button" asChild>
+              <Link to="/about">
+                Talk to Our Team
               </Link>
             </Button>
           </div>

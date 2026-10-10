@@ -1,116 +1,131 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { 
-  Building, 
-  MapPin, 
-  Phone, 
-  Mail, 
-  Globe, 
-  Users, 
-  Target, 
-  Heart, 
+import {
+  Building,
+  MapPin,
+  Phone,
+  Mail,
+  Globe,
+  Target,
+  Heart,
   Award,
-  Clock,
   Shield,
   Zap,
   Handshake,
-  TrendingUp
+  TrendingUp,
+  FileCheck,
+  Ship,
+  ClipboardCheck,
+  Factory,
+  Gauge
 } from "lucide-react";
 
 const AboutPage = () => {
-  const values = [
+  const buyerSegments = [
     {
-      icon: <Shield className="w-8 h-8 text-primary" />,
-      title: "Trust & Transparency",
-      description: "Building lasting relationships through honest communication and transparent processes in every sourcing deal."
+      icon: <Factory className="w-6 h-6 text-primary" />,
+      title: "OEMs",
+      description: "Original Equipment Manufacturers sourcing cast, forged, or machined components for their assemblies"
     },
     {
-      icon: <Zap className="w-8 h-8 text-primary" />,
-      title: "Smart Sourcing",
-      description: "Leveraging our market network and negotiation expertise to deliver instant quotes and cost savings."
+      icon: <Handshake className="w-6 h-6 text-primary" />,
+      title: "Industrial Distributors",
+      description: "Stocking distributors looking for a reliable, repeatable supply of standard and custom parts"
     },
     {
-      icon: <Heart className="w-8 h-8 text-primary" />,
-      title: "Supporting Local",
-      description: "Empowering small manufacturers and shopkeepers to compete with multinational giants through collective bargaining."
+      icon: <Building className="w-6 h-6 text-primary" />,
+      title: "Contract Manufacturers",
+      description: "CMs needing qualified sub-suppliers for castings, forgings, and machined components"
     },
     {
-      icon: <TrendingUp className="w-8 h-8 text-primary" />,
-      title: "Quality Assurance",
-      description: "Every sourced product undergoes strict quality checks to ensure reliability and customer satisfaction."
+      icon: <Gauge className="w-6 h-6 text-primary" />,
+      title: "Maintenance & Repair Companies",
+      description: "MRO teams sourcing spares and replacement parts to tight dimensional tolerances"
+    },
+    {
+      icon: <Ship className="w-6 h-6 text-primary" />,
+      title: "Machinery Importers",
+      description: "Importers bringing Indian-made components and machinery parts into the European market"
     }
   ];
 
-  const milestones = [
+  const complianceAreas = [
     {
-      year: "2025",
-      title: "Company Founded",
-      description: "Founded in Vadodara by passionate engineers with a clear mission to revolutionize sourcing"
+      icon: <FileCheck className="w-6 h-6 text-primary" />,
+      title: "HS Code & Customs Duty",
+      description: "We confirm the exact HS classification and the applicable tariff for your destination country before you commit to an order."
     },
     {
-      year: "2025",
-      title: "First Partnerships",
-      description: "Established initial supplier network and began helping local businesses with sourcing needs"
+      icon: <Shield className="w-6 h-6 text-primary" />,
+      title: "CE Marking",
+      description: "We assess whether your specific product falls under CE marking requirements. CE marking applies to certain machinery and products meeting EU safety requirements — it is not a blanket requirement for every standalone metal component."
     },
     {
-      year: "2025",
-      title: "Platform Development",
-      description: "Launched comprehensive sourcing platform connecting businesses with verified suppliers"
+      icon: <ClipboardCheck className="w-6 h-6 text-primary" />,
+      title: "EU Machinery Regulation 2023/1230",
+      description: "Applicable from 20 January 2027. We check whether the product you are exporting falls within its scope and flag it early in the quotation process."
     },
     {
-      year: "2025",
-      title: "Market Expansion",
-      description: "Expanding network to support more manufacturers and international sourcing partnerships"
+      icon: <Globe className="w-6 h-6 text-primary" />,
+      title: "CBAM & Carbon Reporting",
+      description: "We assess, on a product-by-product basis, whether your order is covered by the EU Carbon Border Adjustment Mechanism or related trade measures — we do not assume every metal article carries the same obligations."
+    },
+    {
+      icon: <Award className="w-6 h-6 text-primary" />,
+      title: "Quality Documentation",
+      description: "Every order is supported by material certificates, dimensional inspection reports, traceability records, and the testing documentation your QA team requires."
     }
   ];
 
   const differentiators = [
     {
       icon: <Handshake className="w-6 h-6 text-primary" />,
-      title: "Strong Market Network",
-      description: "Extensive supplier contacts across India and abroad"
+      title: "Factory Network in India",
+      description: "Vetted casting, forging, and CNC machining partners across India's industrial manufacturing hubs"
     },
     {
       icon: <TrendingUp className="w-6 h-6 text-primary" />,
-      title: "Expert Negotiators", 
-      description: "Hard-bargained prices ensuring customers save money"
+      title: "Competitive Trading Margin",
+      description: "We earn through a transparent trading margin or disclosed sourcing fee — not hidden markups"
     },
     {
       icon: <Shield className="w-6 h-6 text-primary" />,
-      title: "Quality Assurance",
-      description: "Every sourced product goes through strict quality checks"
+      title: "Supplier Risk Management",
+      description: "We manage supplier reliability, production timelines, and payment terms so you carry less risk"
     },
     {
-      icon: <Globe className="w-6 h-6 text-primary" />,
-      title: "Global Sourcing Partner",
-      description: "Helping international buyers seamlessly access Indian manufacturing"
+      icon: <Ship className="w-6 h-6 text-primary" />,
+      title: "Export-Ready Logistics",
+      description: "We coordinate shipping, documentation, and customs paperwork for delivery into Europe"
     },
     {
-      icon: <Heart className="w-6 h-6 text-primary" />,
-      title: "Empowering Local Economy",
-      description: "Supporting small shopkeepers and manufacturers against monopolies"
+      icon: <ClipboardCheck className="w-6 h-6 text-primary" />,
+      title: "Compliance-First Sourcing",
+      description: "HS codes, CE marking scope, Machinery Regulation, and CBAM are reviewed before production starts"
     },
     {
       icon: <Zap className="w-6 h-6 text-primary" />,
-      title: "End-to-End Solutions",
-      description: "From identifying suppliers to logistics delivery, we handle everything"
+      title: "Start with Samples",
+      description: "Begin with samples or small trial orders before scaling to full production volumes"
     }
   ];
 
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Hero Section */}
-      <section className="text-center mb-12">
-        <div className="flex items-center justify-center mb-4">
-          <div className="w-16 h-16 bg-gradient-to-br from-amber-400 via-yellow-500 to-amber-600 rounded-lg flex items-center justify-center mr-4 shadow-glow border-2 border-amber-300/50">
-            <span className="text-black font-bold text-2xl drop-shadow-sm">BFU</span>
-          </div>
-          <h1 className="text-3xl sm:text-4xl font-bold text-foreground">About BUY FOR US</h1>
-        </div>
-        <p className="text-base sm:text-xl text-muted-foreground max-w-4xl mx-auto">
-          Making sourcing smarter, faster, and more cost-effective for businesses while 
-          supporting small manufacturers and shopkeepers in India.
+      <section className="relative bg-foreground text-background rounded-2xl mb-12 px-6 py-14 text-center overflow-hidden">
+        <div className="absolute -top-16 -right-16 w-80 h-80 rounded-full bg-accent/20 blur-3xl"></div>
+        <span className="inline-block text-xs font-semibold tracking-[0.2em] uppercase text-accent mb-4">
+          About BUY FOR US
+        </span>
+        <h1 className="text-3xl sm:text-4xl font-bold mb-4">
+          Connecting European Industry with Indian Manufacturing
+        </h1>
+        <p className="text-base sm:text-xl text-background/70 max-w-3xl mx-auto">
+          An export trading and sourcing company connecting Indian manufacturers of industrial castings,
+          forged components, and custom-machined metal parts with industrial buyers across Europe.
         </p>
       </section>
 
@@ -126,27 +141,28 @@ const AboutPage = () => {
           <div className="grid md:grid-cols-2 gap-8 items-center">
             <div>
               <p className="text-muted-foreground mb-4">
-                Founded in 2025 in Vadodara, India, BUY FOR US (BFU) is a young and dynamic startup 
-                created by passionate engineers with one clear mission: To make sourcing smarter, 
-                faster, and more cost-effective for businesses while supporting small manufacturers 
-                and shopkeepers in India.
+                Founded in Vadodara, India, BUY FOR US (BFU) operates as an export trader and sourcing
+                partner for the European market. We specialize in industrial castings, forged components,
+                and custom-machined metal parts — connecting India's manufacturing base with OEMs and
+                industrial buyers who need a dependable, compliant supply chain.
               </p>
               <p className="text-muted-foreground mb-4">
-                Many engineering and manufacturing companies often need to purchase motors, spare parts, 
-                or specialized hardware but do not buy them frequently. This creates challenges in 
-                identifying the right suppliers, fair prices, and assured quality.
+                We do not run our own factory. Instead, we find the right buyer, obtain a quotation from a
+                qualified Indian factory, and coordinate production from first sample through final shipment —
+                carrying the sourcing and coordination risk so you don't have to manage an overseas factory directly.
               </p>
               <p className="text-muted-foreground">
-                At BFU, sourcing is our core strength. With our wide supplier network, regular market 
-                interactions, and strong negotiation capabilities, we provide businesses with instant 
-                estimated quotes, reduced procurement time, and guaranteed cost savings.
+                This gives European buyers a lower-risk way to access Indian manufacturing: you can start
+                with samples and small trial orders, qualify quality and compliance before committing to
+                volume, and scale up once the supply chain has proven itself.
               </p>
             </div>
             <div className="space-y-4">
-              <div className="bg-gradient-to-br from-amber-100 to-amber-200 p-8 rounded-lg text-center border border-amber-300">
-                <h3 className="text-2xl font-bold text-black mb-2">👉 Our Mission</h3>
-                <p className="text-black font-medium">
-                  To make sourcing smarter, faster, and more cost-effective for businesses
+              <div className="bg-foreground text-background p-8 rounded-lg text-center border border-border">
+                <h3 className="text-2xl font-bold mb-2 text-accent">Our Mission</h3>
+                <p className="text-background/80 font-medium">
+                  To be the trusted bridge between Indian casting, forging, and machining factories
+                  and European industrial buyers — handling quality, compliance, and logistics end to end.
                 </p>
               </div>
             </div>
@@ -165,9 +181,9 @@ const AboutPage = () => {
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground">
-              To become India's most trusted sourcing partner — bridging the gap between businesses, 
-              manufacturers, and global buyers — while empowering local manufacturers and shopkeepers 
-              to thrive in a competitive market.
+              To become Europe's most trusted sourcing partner for Indian-made industrial castings, forged
+              components, and custom-machined parts — making it simple and low-risk for European companies
+              to buy from Indian manufacturing.
             </p>
           </CardContent>
         </Card>
@@ -181,50 +197,68 @@ const AboutPage = () => {
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground">
-              To democratize sourcing by giving every business — big or small — equal access to 
-              quality products, fair prices, and reliable supply chains. By doing so, we aim to 
-              build a market ecosystem where both global enterprises and local businesses can grow together.
+              To give every European buyer — from a single-site MRO team to a multi-plant OEM — access
+              to vetted Indian factories, transparent pricing, and full export compliance, without the
+              overhead of managing a supplier relationship on the ground in India.
             </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* What We Do - Two Main Services */}
+      {/* Who We Serve */}
       <Card className="shadow-card mb-12">
         <CardHeader>
-          <CardTitle className="text-2xl text-center">What We Do</CardTitle>
+          <CardTitle className="text-2xl text-center">Who We Serve</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-6">
+            {buyerSegments.map((segment, index) => (
+              <div key={index} className="text-center p-4 bg-muted/50 rounded-lg">
+                <div className="mb-3 flex justify-center">
+                  {segment.icon}
+                </div>
+                <h3 className="font-semibold mb-2">{segment.title}</h3>
+                <p className="text-sm text-muted-foreground">{segment.description}</p>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* How the Trading Model Works */}
+      <Card className="shadow-card mb-12">
+        <CardHeader>
+          <CardTitle className="text-2xl text-center">How We Work: Export Trading Model</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid md:grid-cols-2 gap-8">
-            <div className="bg-gradient-to-br from-amber-50 to-amber-100 p-6 rounded-lg border border-amber-200">
-              <h3 className="text-xl font-bold mb-4 text-black">
-                🏢 Simplifying Sourcing for Businesses
+            <div className="bg-muted/50 p-6 rounded-lg border border-border">
+              <h3 className="text-xl font-bold mb-4 text-foreground">
+                What We Do
               </h3>
-              <p className="text-black font-medium mb-4">
-                Many engineering and manufacturing companies often need to purchase motors, spare parts, 
-                or specialized hardware but do not buy them frequently. This creates challenges in 
-                identifying the right suppliers, fair prices, and assured quality.
+              <p className="text-muted-foreground mb-4">
+                We find the European buyer, get a competitive quotation from a qualified Indian factory,
+                and coordinate production — from drawing review and sampling through quality inspection
+                and shipment — on the buyer's behalf.
               </p>
-              <p className="text-black font-medium">
-                At BFU, sourcing is our core strength. With our wide supplier network, regular market 
-                interactions, and strong negotiation capabilities, we provide businesses with instant 
-                estimated quotes, reduced procurement time, and guaranteed cost savings.
+              <p className="text-muted-foreground">
+                This means a lower initial investment than setting up your own factory relationship: you can
+                begin with samples and small orders, and scale once the part and the supplier are proven.
               </p>
             </div>
-            
-            <div className="bg-gradient-to-br from-amber-100 to-amber-200 p-6 rounded-lg border border-amber-300">
-              <h3 className="text-xl font-bold mb-4 text-black">
-                🏪 Supporting Small Manufacturers & Shopkeepers
+
+            <div className="bg-foreground text-background p-6 rounded-lg border border-border">
+              <h3 className="text-xl font-bold mb-4 text-accent">
+                What We Manage For You
               </h3>
-              <p className="text-black font-medium mb-4">
-                Today, small manufacturers and local shopkeepers in India face huge challenges competing 
-                with multinational giants like D-Mart, Croma, or Swiggy Instamart. These corporations 
-                enjoy special benefits: bulk pricing, customized packaging, and preferential supply.
+              <p className="text-background/80 mb-4">
+                Supplier reliability, production timelines, payment terms, export shipping, and customer
+                complaints are all handled by us — so your team deals with one accountable partner, not
+                multiple overseas factories.
               </p>
-              <p className="text-black font-medium">
-                BFU steps in as their sourcing ally. We collect order requirements from multiple small 
-                shopkeepers, consolidate them, and negotiate with manufacturers to secure the same pricing 
-                and benefits usually reserved for big players.
+              <p className="text-background/80">
+                We earn through a transparent trading margin or a disclosed sourcing fee, agreed upfront —
+                no hidden costs layered into your quotation.
               </p>
             </div>
           </div>
@@ -253,44 +287,27 @@ const AboutPage = () => {
         </CardContent>
       </Card>
 
-      {/* Values */}
-      <Card className="shadow-card mb-12">
-        <CardHeader>
-          <CardTitle className="text-2xl">Our Values</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {values.map((value, index) => (
-              <div key={index} className="text-center">
-                <div className="mb-4 flex justify-center">
-                  {value.icon}
-                </div>
-                <h3 className="font-semibold mb-2">{value.title}</h3>
-                <p className="text-sm text-muted-foreground">{value.description}</p>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Timeline */}
+      {/* Compliance & Export Standards */}
       <Card className="shadow-card mb-12">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-2xl">
-            <Clock className="w-6 h-6" />
-            Our Journey
+            <ClipboardCheck className="w-6 h-6" />
+            Export Compliance & Standards
           </CardTitle>
+          <p className="text-muted-foreground mt-1">
+            Compliance is assessed per product, per destination — we never assume one requirement applies to every part.
+          </p>
         </CardHeader>
         <CardContent>
-          <div className="space-y-8">
-            {milestones.map((milestone, index) => (
-              <div key={index} className="flex items-start gap-4">
-                <div className="bg-primary text-primary-foreground rounded-full px-3 py-1 text-sm font-semibold min-w-fit">
-                  {milestone.year}
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {complianceAreas.map((item, index) => (
+              <div key={index} className="flex items-start gap-3 p-4 bg-muted/50 rounded-lg">
+                <div className="flex-shrink-0">
+                  {item.icon}
                 </div>
                 <div>
-                  <h3 className="font-semibold mb-1">{milestone.title}</h3>
-                  <p className="text-muted-foreground">{milestone.description}</p>
+                  <h3 className="font-semibold mb-2">{item.title}</h3>
+                  <p className="text-sm text-muted-foreground">{item.description}</p>
                 </div>
               </div>
             ))}
@@ -302,6 +319,10 @@ const AboutPage = () => {
       <Card className="shadow-card">
         <CardHeader>
           <CardTitle className="text-2xl">Get In Touch</CardTitle>
+          <p className="text-muted-foreground mt-1">
+            Send us your drawing or specification for a casting, forged component, or machined part and
+            we'll come back with a factory quotation, HS code, and compliance review for your market.
+          </p>
         </CardHeader>
         <CardContent>
           <div className="grid md:grid-cols-2 gap-8">
@@ -354,9 +375,11 @@ const AboutPage = () => {
               </div>
               
               <div className="mt-6">
-                <Button className="w-full">
-                  <Mail className="w-4 h-4 mr-2" />
-                  Contact Us
+                <Button className="w-full" asChild>
+                  <Link to="/rfq">
+                    <Mail className="w-4 h-4 mr-2" />
+                    Request a Quotation
+                  </Link>
                 </Button>
               </div>
             </div>
