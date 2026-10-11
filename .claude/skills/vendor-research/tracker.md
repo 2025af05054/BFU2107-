@@ -6,13 +6,13 @@ Status values: PENDING | IN_PROGRESS | DONE
 |---|---|---|---|---|---|---|---|---|
 | Castings | 1 | Tamil Nadu | Coimbatore (Arasur, Annur, Kanuvai, SIDCO Kurichi) | 535-620 foundries | sourced | DONE | | Casting_Suppliers_Tamil_Nadu.xlsx |
 | Castings | 2 | Gujarat | Rajkot (Shapar-Veraval, Metoda, Aji GIDC) | ~500 foundries | sourced | DONE | 75 | Castings_Suppliers_Gujarat_Rajkot.xlsx |
-| Castings | 3 | Punjab | Batala (Gurdaspur) + Jalandhar | ~300 | est. | PENDING | | |
-| Castings | 4 | Gujarat | Ahmedabad (Naroda, Odhav, Vatva) | 300-400 | est. | PENDING | | |
-| Castings | 5 | Maharashtra | Kolhapur (Shiroli, Gokul Shirgaon) | 250-350 | sourced | PENDING | | |
-| Castings | 6 | Uttar Pradesh | Agra | ~360 listed | directory | PENDING | | |
-| Castings | 7 | West Bengal | Howrah | ~280 | sourced | PENDING | | |
-| Castings | 8 | Karnataka | Belagavi (Udyambag) | 150+ | sourced | PENDING | | |
-| Forgings | 1 | Punjab | Ludhiana (+ Jalandhar hand tools) | ~200 | sourced | PENDING | | |
+| Castings | 3 | Punjab | Batala (Gurdaspur) + Jalandhar | ~300 | est. | DONE | 106 | Castings_Suppliers_Punjab_Batala_Jalandhar.xlsx |
+| Castings | 4 | Gujarat | Ahmedabad (Naroda, Odhav, Vatva) | 300-400 | est. | DONE | 66 | Castings_Suppliers_Gujarat_Ahmedabad.xlsx |
+| Castings | 5 | Maharashtra | Kolhapur (Shiroli, Gokul Shirgaon) | 250-350 | sourced | DONE | 64 | Castings_Suppliers_Maharashtra_Kolhapur.xlsx |
+| Castings | 6 | Uttar Pradesh | Agra | ~360 listed | directory | DONE | 62 | Castings_Suppliers_Uttar_Pradesh_Agra.xlsx |
+| Castings | 7 | West Bengal | Howrah | ~280 | sourced | DONE | 123 | Castings_Suppliers_West_Bengal_Howrah.xlsx |
+| Castings | 8 | Karnataka | Belagavi (Udyambag) | 150+ | sourced | DONE | 64 | Castings_Suppliers_Karnataka_Belagavi.xlsx |
+| Forgings | 1 | Punjab | Ludhiana (+ Jalandhar hand tools) | ~200 | sourced | IN_PROGRESS | | |
 | Forgings | 2 | Maharashtra | Pune (Chakan, Bhosari, Pimpri-Chinchwad) | 70-160 | sourced | PENDING | | |
 | Forgings | 3 | Gujarat | Rajkot + Ahmedabad (flanges, auto parts) | 100-150 | est. | PENDING | | |
 | Forgings | 4 | Haryana | Faridabad + Gurugram | ~100 | est. | PENDING | | |

@@ -44,137 +44,6 @@ export type Database = {
         }
         Relationships: []
       }
-      vendor_import_batches: {
-        Row: {
-          cluster: string
-          created_at: string
-          file_name: string
-          id: string
-          product_category: string
-          row_count: number
-          source: string | null
-          state: string
-          status: string
-          uploaded_by: string | null
-        }
-        Insert: {
-          cluster: string
-          created_at?: string
-          file_name: string
-          id?: string
-          product_category: string
-          row_count?: number
-          source?: string | null
-          state: string
-          status?: string
-          uploaded_by?: string | null
-        }
-        Update: {
-          cluster?: string
-          created_at?: string
-          file_name?: string
-          id?: string
-          product_category?: string
-          row_count?: number
-          source?: string | null
-          state?: string
-          status?: string
-          uploaded_by?: string | null
-        }
-        Relationships: []
-      }
-      vendors: {
-        Row: {
-          batch_id: string | null
-          capability: string | null
-          certifications: string | null
-          cluster: string
-          company_name: string
-          company_size: string | null
-          contact_no: string | null
-          contact_person: string | null
-          created_at: string
-          email: string | null
-          full_address: string | null
-          id: string
-          installed_capacity: string | null
-          key_cluster: string | null
-          locality: string | null
-          material_type: string | null
-          phone_type: string | null
-          product_category: string
-          size_basis: string | null
-          source: string | null
-          specialty: string | null
-          state: string
-          status: string
-          website: string | null
-          year_established: string | null
-        }
-        Insert: {
-          batch_id?: string | null
-          capability?: string | null
-          certifications?: string | null
-          cluster: string
-          company_name: string
-          company_size?: string | null
-          contact_no?: string | null
-          contact_person?: string | null
-          created_at?: string
-          email?: string | null
-          full_address?: string | null
-          id?: string
-          installed_capacity?: string | null
-          key_cluster?: string | null
-          locality?: string | null
-          material_type?: string | null
-          phone_type?: string | null
-          product_category: string
-          size_basis?: string | null
-          source?: string | null
-          specialty?: string | null
-          state: string
-          status?: string
-          website?: string | null
-          year_established?: string | null
-        }
-        Update: {
-          batch_id?: string | null
-          capability?: string | null
-          certifications?: string | null
-          cluster?: string
-          company_name?: string
-          company_size?: string | null
-          contact_no?: string | null
-          contact_person?: string | null
-          created_at?: string
-          email?: string | null
-          full_address?: string | null
-          id?: string
-          installed_capacity?: string | null
-          key_cluster?: string | null
-          locality?: string | null
-          material_type?: string | null
-          phone_type?: string | null
-          product_category?: string
-          size_basis?: string | null
-          source?: string | null
-          specialty?: string | null
-          state?: string
-          status?: string
-          website?: string | null
-          year_established?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "vendors_batch_id_fkey"
-            columns: ["batch_id"]
-            isOneToOne: false
-            referencedRelation: "vendor_import_batches"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       categories: {
         Row: {
           created_at: string
@@ -760,6 +629,211 @@ export type Database = {
         }
         Relationships: []
       }
+      vendor_import_batches: {
+        Row: {
+          cluster: string
+          created_at: string
+          file_name: string
+          id: string
+          product_category: string
+          row_count: number
+          source: string | null
+          state: string
+          status: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          cluster: string
+          created_at?: string
+          file_name: string
+          id?: string
+          product_category: string
+          row_count?: number
+          source?: string | null
+          state: string
+          status?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          cluster?: string
+          created_at?: string
+          file_name?: string
+          id?: string
+          product_category?: string
+          row_count?: number
+          source?: string | null
+          state?: string
+          status?: string
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
+      vendor_profiles: {
+        Row: {
+          capability_tags: string[] | null
+          capacity: string | null
+          certifications_detail: string | null
+          created_at: string
+          data_confidence: number | null
+          export_experience: string | null
+          export_readiness: string | null
+          export_readiness_basis: string | null
+          id: string
+          is_public: boolean
+          materials_processes: string | null
+          notes: string | null
+          products_served: string | null
+          risk_level: string | null
+          slug: string
+          sources: string | null
+          updated_at: string
+          vendor_id: string
+          verification_checklist: string | null
+        }
+        Insert: {
+          capability_tags?: string[] | null
+          capacity?: string | null
+          certifications_detail?: string | null
+          created_at?: string
+          data_confidence?: number | null
+          export_experience?: string | null
+          export_readiness?: string | null
+          export_readiness_basis?: string | null
+          id?: string
+          is_public?: boolean
+          materials_processes?: string | null
+          notes?: string | null
+          products_served?: string | null
+          risk_level?: string | null
+          slug: string
+          sources?: string | null
+          updated_at?: string
+          vendor_id: string
+          verification_checklist?: string | null
+        }
+        Update: {
+          capability_tags?: string[] | null
+          capacity?: string | null
+          certifications_detail?: string | null
+          created_at?: string
+          data_confidence?: number | null
+          export_experience?: string | null
+          export_readiness?: string | null
+          export_readiness_basis?: string | null
+          id?: string
+          is_public?: boolean
+          materials_processes?: string | null
+          notes?: string | null
+          products_served?: string | null
+          risk_level?: string | null
+          slug?: string
+          sources?: string | null
+          updated_at?: string
+          vendor_id?: string
+          verification_checklist?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_profiles_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vendors: {
+        Row: {
+          batch_id: string | null
+          capability: string | null
+          certifications: string | null
+          cluster: string
+          company_name: string
+          company_size: string | null
+          contact_no: string | null
+          contact_person: string | null
+          created_at: string
+          email: string | null
+          full_address: string | null
+          id: string
+          installed_capacity: string | null
+          key_cluster: string | null
+          locality: string | null
+          material_type: string | null
+          phone_type: string | null
+          product_category: string
+          size_basis: string | null
+          source: string | null
+          specialty: string | null
+          state: string
+          status: string
+          website: string | null
+          year_established: string | null
+        }
+        Insert: {
+          batch_id?: string | null
+          capability?: string | null
+          certifications?: string | null
+          cluster: string
+          company_name: string
+          company_size?: string | null
+          contact_no?: string | null
+          contact_person?: string | null
+          created_at?: string
+          email?: string | null
+          full_address?: string | null
+          id?: string
+          installed_capacity?: string | null
+          key_cluster?: string | null
+          locality?: string | null
+          material_type?: string | null
+          phone_type?: string | null
+          product_category: string
+          size_basis?: string | null
+          source?: string | null
+          specialty?: string | null
+          state: string
+          status?: string
+          website?: string | null
+          year_established?: string | null
+        }
+        Update: {
+          batch_id?: string | null
+          capability?: string | null
+          certifications?: string | null
+          cluster?: string
+          company_name?: string
+          company_size?: string | null
+          contact_no?: string | null
+          contact_person?: string | null
+          created_at?: string
+          email?: string | null
+          full_address?: string | null
+          id?: string
+          installed_capacity?: string | null
+          key_cluster?: string | null
+          locality?: string | null
+          material_type?: string | null
+          phone_type?: string | null
+          product_category?: string
+          size_basis?: string | null
+          source?: string | null
+          specialty?: string | null
+          state?: string
+          status?: string
+          website?: string | null
+          year_established?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendors_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_import_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       supplier_directory: {
@@ -849,7 +923,7 @@ export type Database = {
 
 type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+type DefaultSchema = DatabaseWithoutInternals["public"]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
