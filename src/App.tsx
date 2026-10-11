@@ -17,6 +17,7 @@ import SupplierProfilePage from "./pages/SupplierProfilePage";
 import SupplierPortfolioPage from "./pages/SupplierPortfolioPage";
 import ManufacturersPage from "./pages/ManufacturersPage";
 import ManufacturerProfilePage from "./pages/ManufacturerProfilePage";
+import CastingsPage from "./pages/CastingsPage";
 import AboutPage from "./pages/AboutPage";
 import SupportPage from "./pages/SupportPage";
 import TermsPage from "./pages/TermsPage";
@@ -76,6 +77,7 @@ const App: React.FC = () => {
               <Route path="/s/:username" element={<Layout><SupplierPortfolioPage /></Layout>} />
               <Route path="/manufacturers" element={<Layout><ManufacturersPage /></Layout>} />
               <Route path="/manufacturers/:slug" element={<Layout><ManufacturerProfilePage /></Layout>} />
+              <Route path="/castings" element={<Layout><CastingsPage /></Layout>} />
               <Route path="/about" element={<Layout><AboutPage /></Layout>} />
               <Route path="/support" element={<Layout><SupportPage /></Layout>} />
               <Route path="/terms" element={<Layout><TermsPage /></Layout>} />

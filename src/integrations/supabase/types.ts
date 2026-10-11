@@ -668,6 +668,53 @@ export type Database = {
         }
         Relationships: []
       }
+      vendor_products: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_public: boolean
+          material_tag: string | null
+          name: string
+          process_tag: string | null
+          source_note: string
+          vendor_id: string
+          weight_range: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_public?: boolean
+          material_tag?: string | null
+          name: string
+          process_tag?: string | null
+          source_note?: string
+          vendor_id: string
+          weight_range?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_public?: boolean
+          material_tag?: string | null
+          name?: string
+          process_tag?: string | null
+          source_note?: string
+          vendor_id?: string
+          weight_range?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_products_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vendor_profiles: {
         Row: {
           capability_tags: string[] | null
