@@ -9,7 +9,7 @@ const Footer = () => {
     { name: "Home", path: "/" },
     { name: "RFQ", path: "/rfq" },
     { name: "Category", path: "/categories" },
-    { name: "Supplier", path: "/suppliers" },
+    // { name: "Supplier", path: "/suppliers" }, // hidden: only placeholder/test accounts exist — re-add when real suppliers register
     { name: "About Us", path: "/about" },
     { name: "Support", path: "/support" },
     { name: "Policy", path: "/policy" },

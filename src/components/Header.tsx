@@ -39,7 +39,7 @@ const Header = () => {
     { name: "Home", path: "/" },
     // { name: "Products", path: "/products" }, // hidden: no live data yet — re-add when product catalog has real inventory
     { name: "Castings Catalog", path: "/castings" },
-    { name: "Suppliers", path: "/suppliers" },
+    // { name: "Suppliers", path: "/suppliers" }, // hidden: only placeholder/test accounts exist — re-add when real suppliers register
     { name: "Manufacturers", path: "/manufacturers" },
     { name: "About Us", path: "/about" },
     { name: "Support", path: "/support" },
