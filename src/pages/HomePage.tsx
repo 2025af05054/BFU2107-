@@ -131,7 +131,7 @@ const HomePage = () => {
                   </Link>
                 </Button>
                 <Button variant="outline" size="xl" className="text-lg font-semibold bg-transparent border-background/30 text-background hover:bg-background/10 hover:text-background" asChild>
-                  <Link to="/products">
+                  <Link to="/manufacturers">
                     <FileText className="w-5 h-5 mr-2" />
                     Explore Our Capabilities
                   </Link>
@@ -302,7 +302,8 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* Featured Products */}
+      {/* Featured Products — hidden: no approved products yet, re-enable (remove the `false &&` guard below) once supplier_products has approved listings */}
+      {false && (
       <section className="py-20 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center mb-12">
@@ -397,6 +398,7 @@ const HomePage = () => {
           </div>
         </div>
       </section>
+      )}
 
       {/* Quality Assurance & Export Readiness */}
       <section className="py-16 md:py-20 bg-muted/30">

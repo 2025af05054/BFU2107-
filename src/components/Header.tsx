@@ -37,7 +37,7 @@ const Header = () => {
 
   const navItems = [
     { name: "Home", path: "/" },
-    { name: "Products", path: "/products" },
+    // { name: "Products", path: "/products" }, // hidden: no live data yet — re-add when product catalog has real inventory
     { name: "Castings Catalog", path: "/castings" },
     { name: "Suppliers", path: "/suppliers" },
     { name: "Manufacturers", path: "/manufacturers" },
