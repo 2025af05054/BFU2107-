@@ -80,20 +80,21 @@ const Footer = () => {
                 <MapPin className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="text-sm text-muted-foreground">
-                    LIG-G Tower 1304, Baroda Height<br />
-                    Vadodara, Gujarat 390015
+                    Govind Patel, Sales Manager<br />
+                    10 A, DLF Cyber Hub<br />
+                    Gurugram, Haryana, India
                   </p>
                 </div>
               </div>
-              
+
               <div className="flex items-center space-x-3">
                 <Phone className="w-4 h-4 text-primary flex-shrink-0" />
                 <p className="text-sm text-muted-foreground">+91 9653987673</p>
               </div>
-              
+
               <div className="flex items-center space-x-3">
                 <Mail className="w-4 h-4 text-primary flex-shrink-0" />
-                <p className="text-sm text-muted-foreground">Govindsingh21072000@gmail.com</p>
+                <p className="text-sm text-muted-foreground">sales@buyforus.in</p>
               </div>
             </div>
           </div>

@@ -332,10 +332,10 @@ const AboutPage = () => {
                 <div>
                   <p className="font-medium">Head Office</p>
                   <p className="text-muted-foreground">
+                    Govind Patel, Sales Manager<br />
                     BUY FOR US (BFU)<br />
-                    LIG-G Tower 1304, Baroda Height<br />
-                    Vadodara, Gujarat 390015<br />
-                    India
+                    10 A, DLF Cyber Hub<br />
+                    Gurugram, Haryana, India
                   </p>
                 </div>
               </div>
@@ -352,7 +352,7 @@ const AboutPage = () => {
                 <Mail className="w-5 h-5 text-primary" />
                 <div>
                   <p className="font-medium">Email</p>
-                  <p className="text-muted-foreground">Govindsingh21072000@gmail.com</p>
+                  <p className="text-muted-foreground">sales@buyforus.in</p>
                 </div>
               </div>
             </div>
